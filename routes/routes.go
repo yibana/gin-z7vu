@@ -4,10 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"gin/amazon"
+	"gin/config"
+	"gin/db"
+	"gin/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/gocolly/colly"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 )
@@ -45,16 +50,16 @@ func GetProduct(c *gin.Context) {
 		colly.AllowedDomains(host),
 	)
 
-	//if len(utils.ProxyUrl) > 0 {
-	//	// 设置代理IP
-	//	proxyURL, err := url.Parse(utils.ProxyUrl)
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
-	//	cy.SetProxyFunc(func(_ *http.Request) (*url.URL, error) {
-	//		return proxyURL, nil
-	//	})
-	//}
+	if len(config.ProxyUrl) > 0 {
+		// 设置代理IP
+		proxyURL, err := url.Parse(config.ProxyUrl)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cy.SetProxyFunc(func(_ *http.Request) (*url.URL, error) {
+			return proxyURL, nil
+		})
+	}
 
 	// Create a product object to store the extracted data
 	product := &amazon.Product{}
@@ -68,34 +73,79 @@ func GetProduct(c *gin.Context) {
 		product.Brand = strings.TrimPrefix(e.ChildText("a#bylineInfo"), "Brand: ")
 		product.MerchantInfo = e.ChildText("#merchant-info")
 		product.RatingsCount = e.ChildText("#averageCustomerReviews_feature_div #acrCustomerReviewText")
-		product.ListingDate = e.ChildText("#availability .a-color-success")
 		product.Rating = e.ChildAttr("#acrPopover", "title")
+		product.ReviewCount = e.ChildText("#askATFLink")
 
-		e.ForEach("table#productDetails_techSpec_section_1", func(i int, e *colly.HTMLElement) {
-			var table = make(map[string]string)
-			e.ForEach("tr", func(i int, e *colly.HTMLElement) {
-				table[e.ChildText("th")] = e.ChildText("td")
-			})
-			product.TechnicalDetails = append(product.TechnicalDetails, table)
-		})
-		e.ForEach("table#productDetails_detailBullets_sections1", func(i int, e *colly.HTMLElement) {
-			var table = make(map[string]string)
-			e.ForEach("tr", func(i int, e *colly.HTMLElement) {
-				table[e.ChildText("th")] = e.ChildText("td")
-			})
-			product.AdditionalInformation = append(product.AdditionalInformation, table)
-		})
-
-		product.MainRanking = e.ChildText("#SalesRank")
-		if len(product.TechnicalDetails) > 0 {
-			if size, ok := product.TechnicalDetails[0]["Size"]; ok {
-				product.Size = size
-			}
-			if brand, ok := product.TechnicalDetails[0]["Brand"]; ok {
-				product.Brand = brand
-
-			}
+		table := GetTable(e, "table#productDetails_techSpec_section_1")
+		if len(table) > 0 {
+			product.Details = append(product.Details, table)
 		}
+
+		e.ForEach("#tech table", func(i int, e *colly.HTMLElement) {
+			var tb = make(map[string]string)
+			e.ForEach("tr", func(i int, e *colly.HTMLElement) {
+				td := e.DOM.Find("td")
+				if td.Length() >= 2 {
+					tb[utils.TrimAll(td.Eq(0).Text())] = utils.TrimAll(td.Eq(1).Text())
+				}
+			})
+			if len(tb) > 0 {
+				product.Details = append(product.Details, tb)
+			}
+		})
+		tb := make(map[string]string)
+		e.ForEach("#detailBullets_feature_div span.a-list-item", func(i int, e *colly.HTMLElement) {
+			span := e.DOM.Find("span")
+			if span.Length() >= 2 {
+				tb[utils.TrimSpan(span.Eq(0).Text())] = utils.TrimSpan(span.Eq(1).Text())
+			}
+		})
+		if len(tb) > 0 {
+			product.Details = append(product.Details, tb)
+		}
+
+		table = GetTable(e, "table#productDetails_detailBullets_sections1")
+		if len(table) > 0 {
+			product.Details = append(product.Details, table)
+		}
+		product.MainRanking = e.ChildText("#SalesRank")
+		if len(product.Details) > 0 {
+			var sizes []string
+
+			for _, detail := range product.Details {
+				if size, ok := detail["Size"]; ok {
+					sizes = append(sizes, size)
+				}
+				if size, ok := detail["Product Dimensions"]; ok {
+					sizes = append(sizes, size)
+				}
+				if date, ok := detail["Date First Available"]; ok {
+					product.ListingDate = date
+				}
+				if brand, ok := detail["Brand"]; ok {
+					product.Brand = brand
+				}
+				if ranks, ok := detail["Best Sellers Rank"]; ok {
+					rank_arr := strings.Split(ranks, " #")
+					if len(rank_arr) == 2 {
+						product.MainRanking = rank_arr[0]
+						product.SubRanking = "#" + rank_arr[1]
+					} else if len(rank_arr) == 1 {
+						product.MainRanking = rank_arr[0]
+					}
+				}
+			}
+			product.Size = strings.Join(sizes, ",")
+		}
+
+		var ProductValues amazon.ProductValues
+		ProductValues.Price, _ = utils.ExtractNumberFromString(product.Price)
+		ProductValues.Rating, _ = utils.ExtractNumberFromString(product.Rating)
+		ProductValues.RatingsCount, _ = utils.ExtractNumberFromString(product.RatingsCount)
+		ProductValues.ReviewCount, _ = utils.ExtractNumberFromString(product.ReviewCount)
+		ProductValues.MainRanking, _ = utils.ExtractNumberFromString(product.MainRanking)
+		ProductValues.SubRanking, _ = utils.ExtractNumberFromString(product.SubRanking)
+		product.ProductValues = ProductValues
 
 	})
 
@@ -117,5 +167,18 @@ func GetProduct(c *gin.Context) {
 		c.String(http.StatusInternalServerError, fmt.Sprintf("Error MarshalIndent: %s", err.Error()))
 		return
 	}
+	// 将product保存到mongodb数据库
+	db.MongoMangerInstance.SaveProduct(product)
+
 	c.Data(200, "application/json", marshal)
+}
+
+func GetTable(e *colly.HTMLElement, goquerySelector string) map[string]string {
+	var table = make(map[string]string)
+	e.ForEach(goquerySelector, func(i int, e *colly.HTMLElement) {
+		e.ForEach("tr", func(i int, e *colly.HTMLElement) {
+			table[utils.TrimAll(e.ChildText("th"))] = utils.TrimAll(e.ChildText("td"))
+		})
+	})
+	return table
 }
