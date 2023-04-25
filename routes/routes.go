@@ -100,6 +100,18 @@ func GetProduct(c *gin.Context) {
 				tb[utils.TrimSpan(span.Eq(0).Text())] = utils.TrimSpan(span.Eq(1).Text())
 			}
 		})
+		e.ForEach("#detailBulletsWrapper_feature_div>ul", func(i int, e *colly.HTMLElement) {
+			li := e.DOM.Find("li").First()
+			// 过滤掉td中的style元素
+			li.Find("style").Remove()
+			li.Find("script").Remove()
+			span := li.Find("span.a-text-bold").First()
+			key := span.Text()
+			span.Remove()
+			val := li.Text()
+			tb[utils.TrimSpan(key)] = utils.TrimAll(val)
+		})
+
 		if len(tb) > 0 {
 			product.Details = append(product.Details, tb)
 		}
@@ -127,11 +139,11 @@ func GetProduct(c *gin.Context) {
 				}
 				if ranks, ok := detail["Best Sellers Rank"]; ok {
 					rank_arr := strings.Split(ranks, " #")
-					if len(rank_arr) == 2 {
-						product.MainRanking = rank_arr[0]
-						product.SubRanking = "#" + rank_arr[1]
+					if len(rank_arr) >= 2 {
+						product.MainRanking = utils.TrimAll(rank_arr[0])
+						product.SubRanking = "#" + utils.TrimAll(rank_arr[1])
 					} else if len(rank_arr) == 1 {
-						product.MainRanking = rank_arr[0]
+						product.MainRanking = utils.TrimAll(rank_arr[0])
 					}
 				}
 			}
@@ -146,6 +158,8 @@ func GetProduct(c *gin.Context) {
 		ProductValues.MainRanking, _ = utils.ExtractNumberFromString(product.MainRanking)
 		ProductValues.SubRanking, _ = utils.ExtractNumberFromString(product.SubRanking)
 		product.ProductValues = ProductValues
+
+		product.DeliveryInfo = amazon.MerchantInfo2DeliveryInfo(product.MerchantInfo)
 
 	})
 
@@ -177,7 +191,11 @@ func GetTable(e *colly.HTMLElement, goquerySelector string) map[string]string {
 	var table = make(map[string]string)
 	e.ForEach(goquerySelector, func(i int, e *colly.HTMLElement) {
 		e.ForEach("tr", func(i int, e *colly.HTMLElement) {
-			table[utils.TrimAll(e.ChildText("th"))] = utils.TrimAll(e.ChildText("td"))
+			td := e.DOM.Find("td")
+			// 过滤掉td中的style元素
+			td.Find("style").Remove()
+			td.Find("script").Remove()
+			table[utils.TrimAll(e.ChildText("th"))] = utils.TrimAll(td.Text())
 		})
 	})
 	return table
