@@ -69,9 +69,9 @@ func GetProduct(c *gin.Context) {
 		//ioutil.WriteFile("product.html", []byte(string(e.Response.Body)), 0644)
 		product.ASIN = e.ChildAttr("div[data-asin]", "data-asin")
 		product.Title = e.ChildText("#productTitle")
-		product.Price = e.ChildText("#corePriceDisplay_desktop_feature_div span.a-offscreen")
+		product.Price = utils.TrimAll(e.DOM.Find("div.a-box-inner span.a-price span").First().Text())
 		product.Brand = strings.TrimPrefix(e.ChildText("a#bylineInfo"), "Brand: ")
-		product.MerchantInfo = e.ChildText("#merchant-info")
+		product.MerchantInfo = utils.TrimAll(e.DOM.Find("#merchant-info").First().Text())
 		product.RatingsCount = e.ChildText("#averageCustomerReviews_feature_div #acrCustomerReviewText")
 		product.Rating = e.ChildAttr("#acrPopover", "title")
 		product.ReviewCount = e.ChildText("#askATFLink")
@@ -93,6 +93,12 @@ func GetProduct(c *gin.Context) {
 			product.Details = append(product.Details, table)
 		}
 
+		// 产品图片
+		e.ForEach("#leftCol li[data-csa-c-element-type=navigational] img", func(i int, element *colly.HTMLElement) {
+			product.Images = append(product.Images, element.Attr("src"))
+		})
+
+		// 产品详情
 		e.ForEach("#tech table", func(i int, e *colly.HTMLElement) {
 			var tb = make(map[string]string)
 			e.ForEach("tr", func(i int, e *colly.HTMLElement) {
@@ -105,6 +111,7 @@ func GetProduct(c *gin.Context) {
 				product.Details = append(product.Details, tb)
 			}
 		})
+		// 产品详情
 		tb := make(map[string]string)
 		e.ForEach("#detailBullets_feature_div span.a-list-item", func(i int, e *colly.HTMLElement) {
 			span := e.DOM.Find("span")
@@ -112,6 +119,7 @@ func GetProduct(c *gin.Context) {
 				tb[utils.TrimSpan(span.Eq(0).Text())] = utils.TrimSpan(span.Eq(1).Text())
 			}
 		})
+		// 产品详情
 		e.ForEach("#detailBulletsWrapper_feature_div>ul", func(i int, e *colly.HTMLElement) {
 			li := e.DOM.Find("li").First()
 			// 过滤掉td中的style元素

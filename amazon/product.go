@@ -31,7 +31,8 @@ type Product struct {
 	SubRanking       string              `json:"subRanking,omitempty"`      // 产品子排名
 	Availability     string              `json:"availability,omitempty"`    // 产品可用性
 	Details          []map[string]string `json:"details,omitempty"`         // 产品细节
-	OtherSellersSpan []string            `json:"OtherSellerSpan,omitempty"` // 产品其他卖家简要
+	OtherSellersSpan []string            `json:"otherSellerSpan,omitempty"` // 产品其他卖家简要
+	Images           []string            `json:"images,omitempty"`          // 产品图片
 	ProductValues    ProductValues       `json:"productValues,omitempty"`
 	DeliveryInfo     DeliveryInfo        `json:"deliveryInfo,omitempty"`
 }
