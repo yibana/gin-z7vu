@@ -54,10 +54,12 @@ func MerchantInfo2DeliveryInfo(MerchantInfo string) (dinfo DeliveryInfo) {
 	}
 	if MerchantInfo == "Ships from and sold by Amazon.ca." {
 		dinfo.Mode = "AMZ"
+		dinfo.Info["sellerName"] = "Amazon.ca"
+		dinfo.Info["shipFrom"] = "Amazon.ca"
 		return
 	}
 	// 用正则提取卖家名称
-	compile := regexp.MustCompile(`Ships from\s+(\S+)\s+and sold by\s+(\S+)`)
+	compile := regexp.MustCompile(`Ships from\s+(.*?)\s+and sold by\s+(.*?)\.`)
 	submatch := compile.FindStringSubmatch(MerchantInfo)
 	if len(submatch) == 3 {
 		dinfo.Mode = "FBM"
@@ -65,7 +67,7 @@ func MerchantInfo2DeliveryInfo(MerchantInfo string) (dinfo DeliveryInfo) {
 		dinfo.Info["sellerName"] = submatch[2]
 		return
 	}
-	compile = regexp.MustCompile(`Sold by\s+(\S+)\s+and Fulfilled by\s+(\S+)`)
+	compile = regexp.MustCompile(`Sold by\s+(.*?)\s+and Fulfilled by\s+(.*?)\.`)
 	submatch = compile.FindStringSubmatch(MerchantInfo)
 	if len(submatch) == 3 {
 		dinfo.Mode = "FBA"
@@ -73,7 +75,7 @@ func MerchantInfo2DeliveryInfo(MerchantInfo string) (dinfo DeliveryInfo) {
 		dinfo.Info["fulfilledBy"] = submatch[2]
 		return
 	}
-	compile = regexp.MustCompile(`Sold by\s+(\S+)\s+and Fulfilled by\s+(\S+)\s+from outside\s+(\S+)`)
+	compile = regexp.MustCompile(`Sold by\s+(.*?)\s+and Fulfilled by\s+(.*?)\s+from outside\s+(.*?)\.`)
 	submatch = compile.FindStringSubmatch(MerchantInfo)
 	if len(submatch) == 4 {
 		dinfo.Mode = "FBA"
