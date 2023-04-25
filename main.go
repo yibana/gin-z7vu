@@ -19,5 +19,6 @@ func main() {
 	r.GET("/readme", routes.Readme)
 	r.GET("/categorys", routes.AllCategorys)
 	r.GET("/product", routes.GetProduct)
+	r.GET("/paths", routes.Paths)
 	r.Run()
 }
