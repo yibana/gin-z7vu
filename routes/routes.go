@@ -76,6 +76,18 @@ func GetProduct(c *gin.Context) {
 		product.Rating = e.ChildAttr("#acrPopover", "title")
 		product.ReviewCount = e.ChildText("#askATFLink")
 
+		availability := e.DOM.Find("#availability span").First()
+		product.Availability = utils.TrimAll(availability.Text())
+
+		// 卖家数量
+		var sellerSpan []string
+		e.ForEach("#olpLinkWidget_feature_div div.olp-text-box>span", func(i int, element *colly.HTMLElement) {
+			v := utils.TrimAll(element.DOM.First().Text())
+			if len(v) > 0 {
+				sellerSpan = append(sellerSpan, element.Text)
+			}
+		})
+		product.OtherSellersSpan = sellerSpan
 		table := GetTable(e, "table#productDetails_techSpec_section_1")
 		if len(table) > 0 {
 			product.Details = append(product.Details, table)
@@ -157,6 +169,11 @@ func GetProduct(c *gin.Context) {
 		ProductValues.ReviewCount, _ = utils.ExtractNumberFromString(product.ReviewCount)
 		ProductValues.MainRanking, _ = utils.ExtractNumberFromString(product.MainRanking)
 		ProductValues.SubRanking, _ = utils.ExtractNumberFromString(product.SubRanking)
+		ProductValues.Availability, _ = utils.ExtractNumberFromString(product.Availability)
+		if len(product.OtherSellersSpan) > 0 {
+			ProductValues.OtherSellerCount, _ = utils.ExtractNumberFromString(product.OtherSellersSpan[0])
+		}
+
 		product.ProductValues = ProductValues
 
 		product.DeliveryInfo = amazon.MerchantInfo2DeliveryInfo(product.MerchantInfo)
