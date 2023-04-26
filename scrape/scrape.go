@@ -1,6 +1,7 @@
 package scrape
 
 import (
+	"encoding/json"
 	"fmt"
 	"gin/amazon"
 	"gin/utils"
@@ -9,12 +10,116 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
+
+const UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
+
+func GetAmzProductList(_url, proxy string) ([]amazon.CategoryRank, error) {
+	host := strings.Split(_url, "/")[2]
+	cy := colly.NewCollector(
+		colly.UserAgent(UserAgent),
+		colly.AllowedDomains(host),
+	)
+	cy.Limit(&colly.LimitRule{
+		DomainGlob:  "*",
+		Parallelism: 1,
+		RandomDelay: 5 * time.Second,
+	})
+
+	if len(proxy) > 0 { // 设置代理IP
+		proxyURL, err := url.Parse(proxy)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cy.SetProxyFunc(func(_ *http.Request) (*url.URL, error) {
+			return proxyURL, nil
+		})
+	}
+	var onError error
+	var asins []amazon.CategoryRank
+	type recs_list struct {
+		ID          string `json:"id"`
+		MetadataMap struct {
+			RenderZgRank                           string `json:"render.zg.rank"`
+			RenderZgBsmsCurrentSalesRank           string `json:"render.zg.bsms.currentSalesRank"`
+			RenderZgBsmsPercentageChange           string `json:"render.zg.bsms.percentageChange"`
+			RenderZgBsmsTwentyFourHourOldSalesRank string `json:"render.zg.bsms.twentyFourHourOldSalesRank"`
+			DisablePercolateLinkParams             string `json:"disablePercolateLinkParams"`
+		} `json:"metadataMap"`
+		LinkParameters struct {
+		} `json:"linkParameters"`
+	}
+	cy.OnHTML("div.p13n-desktop-grid", func(e *colly.HTMLElement) {
+		attr, exists := e.DOM.Attr("data-client-recs-list")
+		if exists {
+			var recs_lists []recs_list
+			err := json.Unmarshal([]byte(attr), &recs_lists)
+			if err != nil {
+				onError = err
+				return
+			}
+			for _, rl := range recs_lists {
+				rank := amazon.CategoryRank{Rank: rl.MetadataMap.RenderZgRank, ID: rl.ID}
+				IdDiv := e.DOM.Find(fmt.Sprintf("#%s", rl.ID)).First()
+				if src, b := IdDiv.Find("img").First().Attr("src"); b {
+					rank.Img = e.Request.AbsoluteURL(src)
+				}
+				if href, b := IdDiv.Find("a").First().Attr("href"); b {
+					rank.Url = e.Request.AbsoluteURL(href)
+				}
+				rank.Title = utils.TrimAll(IdDiv.Find("a>span>div").First().Text())
+				rank.Price = utils.TrimAll(IdDiv.Find("span.a-color-price").First().Text())
+				rank.Rating = utils.TrimAll(IdDiv.Find("div>a i.a-icon-star-small").First().Text())
+				rank.RatingsCount = utils.TrimAll(IdDiv.Find("div>a span.a-size-small").First().Text())
+				asins = append(asins, rank)
+			}
+
+		}
+	})
+
+	var visitCount = 1
+	cy.OnHTML("div.a-text-center ul li.a-normal a", func(element *colly.HTMLElement) {
+		src := element.Attr("href")
+		if len(src) > 0 && visitCount > 0 {
+			visitCount--
+			element.Request.Visit(src)
+		}
+	})
+
+	cy.OnError(func(r *colly.Response, err error) {
+		onError = err
+	})
+
+	cy.OnResponse(func(r *colly.Response) {
+		body := string(r.Body)
+		if strings.Contains(body, "Sorry, we just need to make sure you're not a robot. For best results, please make sure your browser is accepting cookies.") {
+			onError = fmt.Errorf("robot")
+			return
+		}
+	})
+
+	// Before making a request
+	cy.OnRequest(func(r *colly.Request) {
+		fmt.Println("Visiting", r.URL.String())
+	})
+
+	// Start scraping
+	err := cy.Visit(_url)
+	if err != nil {
+		return nil, err
+	}
+	if onError != nil {
+		return nil, onError
+	}
+	return asins, nil
+}
 
 func GetAmzProduct(host, asin, proxy string) (*amazon.Product, error) {
 	productURL := fmt.Sprintf("https://%s/dp/%s?th=1&psc=1", host, asin)
 	// Create a new collector
 	cy := colly.NewCollector(
+		colly.UserAgent(UserAgent),
 		colly.AllowedDomains(host),
 	)
 
