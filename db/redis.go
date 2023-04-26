@@ -26,3 +26,15 @@ func (rds *RedisCacheManger) Exist(key string) (bool, error) {
 	}
 	return result == 1, nil
 }
+
+func (rds *RedisCacheManger) SetCategoryPathPointer(Pointer int) error {
+	return rds.Redis_client.Set(context.Background(), "CategoryPathPointer", Pointer, -1).Err()
+}
+
+func (rds *RedisCacheManger) GetCategoryPathPointer() (int, error) {
+	result, err := rds.Redis_client.Get(context.Background(), "CategoryPathPointer").Int()
+	if err != nil {
+		return 0, err
+	}
+	return result, nil
+}

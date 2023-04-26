@@ -41,3 +41,13 @@ func (m *AMZ_Product_MonGo) SaveCategoryRank(CategoryRank *amazon.CategoryRank) 
 	}
 	return nil
 }
+
+func (m *AMZ_Product_MonGo) BatchSaveCategoryRank(CategoryRank []*amazon.CategoryRank) error {
+	for _, rank := range CategoryRank {
+		err := m.SaveCategoryRank(rank)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

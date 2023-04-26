@@ -7,10 +7,12 @@ import (
 	"gin/config"
 	"gin/db"
 	"gin/scrape"
+	"gin/task"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -56,8 +58,12 @@ func get_category_paths() []string {
 }
 
 func Paths(c *gin.Context) {
-	paths := get_category_paths()
-	c.String(http.StatusOK, strings.Join(paths, "\n"))
+	bytes, err := json.MarshalIndent(task.CategoryPaths, "", "  ")
+	if err != nil {
+		c.String(http.StatusInternalServerError, fmt.Sprintf("Error MarshalIndent: %s", err.Error()))
+		return
+	}
+	c.Data(200, "application/json", bytes)
 }
 
 func AllCategorys(c *gin.Context) {
@@ -107,4 +113,28 @@ func GetProductList(c *gin.Context) {
 		return
 	}
 	c.Data(200, "application/json", marshal)
+}
+
+func Task(c *gin.Context) {
+	cmd := c.DefaultQuery("cmd", "status")
+	pointer, _ := db.RedisCacheInstance.GetCategoryPathPointer()
+	p := c.DefaultQuery("p", fmt.Sprintf("%d", pointer))
+	n := c.DefaultQuery("n", "1")
+	var result = []byte(`{"status":"ok"}`)
+	switch cmd {
+	case "status":
+		result = []byte(task.TaskInstance.GetStatus())
+	case "start":
+		sp, _ := strconv.Atoi(p)
+		sn, _ := strconv.Atoi(n)
+		task.TaskInstance.Start(sp, sn)
+		result = []byte(task.TaskInstance.GetStatus())
+	case "stop":
+		task.TaskInstance.Stop()
+		result = []byte(task.TaskInstance.GetStatus())
+	case "RandProxy":
+		result = []byte(task.TaskInstance.RandProxy())
+	}
+
+	c.Data(200, "application/json", result)
 }

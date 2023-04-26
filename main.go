@@ -21,5 +21,6 @@ func main() {
 	r.GET("/product", routes.GetProduct)
 	r.GET("/paths", routes.Paths)
 	r.GET("/product/list", routes.GetProductList)
+	r.GET("/task", routes.Task)
 	r.Run()
 }
