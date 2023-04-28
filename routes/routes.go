@@ -9,11 +9,13 @@ import (
 	"gin/scrape"
 	"gin/task"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func Readme(c *gin.Context) {
@@ -137,4 +139,55 @@ func Task(c *gin.Context) {
 	}
 
 	c.Data(200, "application/json", result)
+}
+
+func GetCategoryRankCountGroupByPath(c *gin.Context) {
+	result, err := db.AMZProductInstance.GetCategoryRankCountGroupByPath()
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	bytes, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	c.Data(200, "application/json", bytes)
+}
+
+// MongoAggregate
+func MongoAggregate(c *gin.Context) {
+	var query []bson.M
+	err := json.NewDecoder(c.Request.Body).Decode(&query)
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	// 生成缓存key
+	marshal, _ := json.Marshal(query)
+	redis_key := db.NewBaseRedisKey(time.Minute*10, string(marshal))
+	// 从缓存中获取
+	if bytes, ok := db.RedisCacheInstance.GetAPICache(redis_key); ok {
+		c.Data(200, "application/json", bytes)
+		return
+	}
+
+	result, err := db.AMZProductInstance.MongoAggregate(query)
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	if len(result) == 0 {
+		c.Data(200, "application/json", []byte("[]"))
+		return
+	}
+
+	bytes, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	// 缓存结果
+	db.RedisCacheInstance.SetAPICache(bytes, redis_key)
+	c.Data(200, "application/json", bytes)
 }

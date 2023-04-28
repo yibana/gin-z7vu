@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"gin/amazon"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"time"
 )
@@ -50,4 +51,58 @@ func (m *AMZ_Product_MonGo) BatchSaveCategoryRank(CategoryRank []*amazon.Categor
 		}
 	}
 	return nil
+}
+
+func (m *AMZ_Product_MonGo) GetCategoryRankCount() (int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	filter := bson.M{"path": bson.M{"$ne": ""}}
+	return m.collection.CountDocuments(ctx, filter)
+}
+
+// 聚合查询，以path分组，统计每个path的数量
+func (m *AMZ_Product_MonGo) GetCategoryRankCountGroupByPath() ([]bson.M, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	pipeline := []bson.M{
+		{
+			// 存在path字段
+			"$match": bson.M{"path": bson.M{"$ne": ""}},
+		},
+		{
+			"$group": bson.M{
+				"_id":   "$path",
+				"count": bson.M{"$sum": 1},
+			},
+		},
+		{
+			// 按照_id降序排列
+			"$sort": bson.M{"_id": -1},
+		},
+	}
+	cursor, err := m.collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	var result []bson.M
+	err = cursor.All(ctx, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (m *AMZ_Product_MonGo) MongoAggregate(query []bson.M) ([]bson.M, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cursor, err := m.collection.Aggregate(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	var result []bson.M
+	err = cursor.All(ctx, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }

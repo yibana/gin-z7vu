@@ -2,11 +2,48 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"github.com/redis/go-redis/v9"
+	"github.com/zentures/cityhash"
+	"log"
+	"strings"
+	"time"
 )
+
+func extractMaxN(str string, n int) string {
+	if len(str) <= n {
+		return str
+	}
+	return str[:n] + "..."
+}
 
 type RedisCacheManger struct {
 	Redis_client *redis.Client
+}
+type BaseRedisKey struct {
+	expiration   time.Duration
+	key_hash_str string
+	summary      string
+}
+
+func NewBaseRedisKey(expiration time.Duration, arg ...string) *BaseRedisKey {
+	if len(arg) == 0 {
+		return nil
+	}
+	if expiration.Seconds() < 1 {
+		expiration = time.Second
+	}
+	key := strings.Join(arg, " ")
+	key_hash_str := fmt.Sprintf("APICache:%x", HashData(key))
+	return &BaseRedisKey{
+		expiration:   expiration,
+		key_hash_str: key_hash_str,
+		summary:      extractMaxN(key, 120),
+	}
+}
+func HashData(Raw string) uint64 {
+	hash := cityhash.CityHash64([]byte(Raw), uint32(len(Raw)))
+	return hash
 }
 
 func NewRedisCacheManger(url string) (*RedisCacheManger, error) {
@@ -37,4 +74,24 @@ func (rds *RedisCacheManger) GetCategoryPathPointer() (int, error) {
 		return 0, err
 	}
 	return result, nil
+}
+
+func (rds *RedisCacheManger) GetAPICache(rk *BaseRedisKey) ([]byte, bool) {
+	now := time.Now()
+	bytes, err := rds.Redis_client.Get(context.Background(), rk.key_hash_str).Bytes()
+	if err != nil {
+		return nil, false
+	}
+	log.Printf("[GetAPICache]:[%s] RespSize:[%d] Elapsed_Time:%vs\n", rk.summary, len(bytes), time.Now().Sub(now).Seconds())
+	return bytes, true
+}
+
+func (rds *RedisCacheManger) SetAPICache(data []byte, rk *BaseRedisKey) {
+	if len(data) == 0 {
+		return
+	}
+	err := rds.Redis_client.Set(context.Background(), rk.key_hash_str, data, rk.expiration).Err()
+	if err != nil {
+		log.Println(err)
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"gin/amazon"
 	"gin/db"
 	"gin/scrape"
+	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -26,7 +27,12 @@ func NewTask() *CategoryTask {
 }
 
 func (t *CategoryTask) GetStatus() string {
-	return fmt.Sprintf("CategoryPathPointer: %d Status:%d lastErr:%v", t.CategoryPathPointer, t.Status, t.lastErr)
+	count, err := db.AMZProductInstance.GetCategoryRankCount()
+	if err != nil {
+		log.Println(err.Error())
+	}
+
+	return fmt.Sprintf("CategoryPathPointer: %d Status:%d CategoryRankCount:%d lastErr:%v", t.CategoryPathPointer, t.Status, count, t.lastErr)
 }
 
 func (t *CategoryTask) GetCategory() *CategoryPath {
@@ -140,7 +146,7 @@ func (t *CategoryTask) RandProxy() string {
 }
 
 func (t *CategoryTask) Start(p int, n int) {
-	if t.Status == 1 {
+	if t.Status != 0 {
 		return
 	}
 	if n <= 0 {
