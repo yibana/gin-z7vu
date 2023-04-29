@@ -2,7 +2,9 @@ package amazon
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"sync"
 )
 
@@ -55,4 +57,31 @@ func (c *CategoryManger) Add(parent interface{}, category *Category) {
 	}
 	category.Parent = p
 	p.Sub = append(p.Sub, category)
+}
+
+type TreeNode struct {
+	Value    string      `json:"value"`
+	Label    string      `json:"label"`
+	Children []*TreeNode `json:"children"`
+}
+
+func ConvertToTreeNode(Path string, category *Category) *TreeNode {
+	value := category.Name
+	if len(Path) > 0 {
+		value = fmt.Sprintf("%s > %s", Path, category.Name)
+	}
+	treeNode := &TreeNode{
+		Value: value,
+		Label: category.Name,
+	}
+	if len(category.Sub) > 0 {
+		treeNode.Children = make([]*TreeNode, len(category.Sub))
+		for i, sub := range category.Sub {
+			treeNode.Children[i] = ConvertToTreeNode(value, sub)
+		}
+		treeNode.Value = fmt.Sprintf("%s(%d)", value, rand.Intn(10000))
+	} else {
+		treeNode.Value = fmt.Sprintf("[End%d]%s", rand.Intn(10000), value)
+	}
+	return treeNode
 }

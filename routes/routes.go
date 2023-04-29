@@ -77,6 +77,29 @@ func AllCategorys(c *gin.Context) {
 	}
 	c.Data(200, "application/json", categorys)
 }
+
+func Categorys2TreeNode(c *gin.Context) {
+	filepath := filepath.Join(".", "category.json")
+	categorys, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		c.String(http.StatusInternalServerError, fmt.Sprintf("Error reading file: %s", err.Error()))
+		return
+	}
+	var category amazon.Category
+	err = json.Unmarshal(categorys, &category)
+	if err != nil {
+		c.String(http.StatusInternalServerError, fmt.Sprintf("Error Unmarshal: %s", err.Error()))
+		return
+	}
+	treeNode := amazon.ConvertToTreeNode("", &category)
+	bytes, err := json.MarshalIndent(treeNode, "", "  ")
+	if err != nil {
+		c.String(http.StatusInternalServerError, fmt.Sprintf("Error MarshalIndent: %s", err.Error()))
+		return
+	}
+	c.Data(200, "application/json", bytes)
+}
+
 func GetProduct(c *gin.Context) {
 	host := c.DefaultQuery("host", "www.amazon.ca")
 	asin := c.DefaultQuery("asin", "B08MR2C1T7")
