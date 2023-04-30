@@ -83,8 +83,8 @@ func (m *AMZ_Product_MonGo) GetCategoryRankCountGroupByPath() ([]bson.M, error) 
 func (m *AMZ_Product_MonGo) UpdateAsin(asin string, asin2 string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	filter := bson.M{"asin": asin}
-	update := bson.M{"$set": bson.M{"asin": asin2}}
+	filter := bson.M{"id": asin}
+	update := bson.M{"$set": bson.M{"id": asin2}}
 	_, err := m.collection.UpdateMany(ctx, filter, update)
 	if err != nil {
 		return err
