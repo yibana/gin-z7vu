@@ -29,9 +29,9 @@ fi
 
 # Set environment variable
 export MONGO_URL="mongodb://admin:3WPIki9dXShd6ZZhGXKZ@127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+1.8.2"
+chmod +x pull_deploy.sh
 
 # Start gin and log output to gin.log
 nohup ./gin > gin.log 2>&1 &
-chmod +x pull_deploy.sh
 # View logs
 tail -f gin.log
