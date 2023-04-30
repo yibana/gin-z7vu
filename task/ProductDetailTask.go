@@ -160,6 +160,8 @@ func (t *ProductDetailTask) Run(i int) {
 				if err != nil {
 					if !strings.Contains(err.Error(), "Not Found") {
 						t.AddAsin(asin)
+					} else {
+						db.AMZProductInstance.DeleteAsin(asin)
 					}
 
 					threadinfo.Fail++

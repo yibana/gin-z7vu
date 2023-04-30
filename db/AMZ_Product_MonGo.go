@@ -91,3 +91,15 @@ func (m *AMZ_Product_MonGo) UpdateAsin(asin string, asin2 string) error {
 	}
 	return nil
 }
+
+// 删除所有指定的asin
+func (m *AMZ_Product_MonGo) DeleteAsin(asin string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	filter := bson.M{"id": asin}
+	_, err := m.collection.DeleteMany(ctx, filter)
+	if err != nil {
+		return err
+	}
+	return nil
+}
