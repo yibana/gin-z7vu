@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"gin/db"
 	"gin/scrape"
-	browser "github.com/EDDYCJY/fake-useragent"
 	"github.com/gocolly/colly"
 	"go.mongodb.org/mongo-driver/bson"
 	"log"
@@ -136,7 +135,7 @@ func (t *ProductDetailTask) Run(i int) {
 	threadinfo := t.threadInfos[i]
 	var GetAsinFailCount int
 	var robotCount int
-	ua := browser.Computer()
+	ua := scrape.UserAgent
 	host := "www.amazon.ca"
 	proxy := threadinfo.Proxy
 	cy := colly.NewCollector(
