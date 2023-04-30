@@ -15,11 +15,12 @@ import (
 )
 
 type threadInfo struct {
-	Proxy   string `json:"proxy"`
-	Succ    int    `json:"succ"`
-	Fail    int    `json:"fail"`
-	Info    string `json:"info"`
-	LastErr string `json:"last_err"`
+	Proxy       string `json:"proxy"`
+	Succ        int    `json:"succ"`
+	Fail        int    `json:"fail"`
+	Info        string `json:"info"`
+	LastErr     string `json:"last_err"`
+	LastErrTime int64  `json:"lastErrTime"`
 }
 
 type ProductDetailTask struct {
@@ -141,6 +142,7 @@ func (t *ProductDetailTask) Run(i int) {
 					GetAsinFailCount++
 					if GetAsinFailCount > 3 {
 						threadinfo.LastErr = "获取asin失败次数过多"
+						threadinfo.LastErrTime = time.Now().Unix()
 						return
 					}
 					threadinfo.LastErr = err.Error()
@@ -162,10 +164,14 @@ func (t *ProductDetailTask) Run(i int) {
 					threadinfo.Fail++
 					atomic.AddInt64(&t.failCount, 1)
 					threadinfo.LastErr = fmt.Sprintf("%s:%s", asin, err.Error())
+					threadinfo.LastErrTime = time.Now().Unix()
 					time.Sleep(time.Second * 10)
 					continue
 				}
 				threadinfo.Succ++
+				if len(threadinfo.LastErr) > 0 && time.Now().Unix()-threadinfo.LastErrTime > 60 {
+					threadinfo.LastErr = ""
+				}
 				atomic.AddInt64(&t.succCount, 1)
 				// 保存到数据库
 				db.AMZProductDetailInstance.SaveProductDetail(product)
