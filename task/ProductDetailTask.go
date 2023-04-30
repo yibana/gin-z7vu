@@ -58,9 +58,9 @@ func (t *ProductDetailTask) GetStatus() interface{} {
 		PathsCount  int           `json:"paths_count"`
 		Status      string        `json:"status"`
 		LastErr     string        `json:"last_err"`
-		ThreadInfos []*threadInfo `json:"thread_infos"`
 		SuccCount   int64         `json:"succ_count"`
 		FailCount   int64         `json:"fail_count"`
+		ThreadInfos []*threadInfo `json:"thread_infos"`
 	}{
 		RuningPath:  t.runingPath,
 		PathsCount:  len(t.TaskPaths),
@@ -75,7 +75,7 @@ func (t *ProductDetailTask) GetStatus() interface{} {
 func (t *ProductDetailTask) SleepRandomDelay() {
 	if t.RandomDelay > 0 {
 		// min-max
-		min := 100
+		min := 1000
 		max := t.RandomDelay
 		if max < min {
 			max = min
@@ -157,7 +157,7 @@ func (t *ProductDetailTask) Run(i int) {
 					threadinfo.Fail++
 					atomic.AddInt64(&t.failCount, 1)
 					threadinfo.LastErr = err.Error()
-					time.Sleep(time.Second * 5)
+					time.Sleep(time.Second * 10)
 					continue
 				}
 				threadinfo.Succ++
