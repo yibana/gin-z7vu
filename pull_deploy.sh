@@ -2,6 +2,7 @@
 
 # 更新代码
 echo "Updating repository..."
+git reset --hard HEAD
 git pull
 
 # 编译
