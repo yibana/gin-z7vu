@@ -130,6 +130,7 @@ func (t *ProductDetailTask) Start(proxys []string, RandomDelay int) error {
 func (t *ProductDetailTask) Run(i int) {
 	threadinfo := t.threadInfos[i]
 	var GetAsinFailCount int
+	var robotCount int
 	for {
 		select {
 		case <-t.ctx.Done():
@@ -160,6 +161,16 @@ func (t *ProductDetailTask) Run(i int) {
 					if !strings.Contains(err.Error(), "Not Found") {
 						t.AddAsin(asin)
 					}
+					if strings.Contains(err.Error(), "robot") || strings.Contains(err.Error(), "Service Unavailable") {
+						robotCount++
+						fmt.Println("robot || Service Unavailable", robotCount*60)
+						for i := 0; i < robotCount*60; i++ {
+							time.Sleep(time.Second)
+							if t.Status != 1 {
+								break
+							}
+						}
+					}
 
 					threadinfo.Fail++
 					atomic.AddInt64(&t.failCount, 1)
@@ -169,6 +180,7 @@ func (t *ProductDetailTask) Run(i int) {
 					continue
 				}
 				threadinfo.Succ++
+				robotCount = 0
 				if len(threadinfo.LastErr) > 0 && time.Now().Unix()-threadinfo.LastErrTime > 60 {
 					threadinfo.LastErr = ""
 				}
