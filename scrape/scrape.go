@@ -2,9 +2,11 @@ package scrape
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"gin/amazon"
 	"gin/utils"
+	"github.com/EDDYCJY/fake-useragent"
 	"github.com/gocolly/colly"
 	"log"
 	"net/http"
@@ -118,8 +120,9 @@ func GetAmzProductList(_url, proxy string) ([]amazon.CategoryRank, error) {
 func GetAmzProduct(host, asin, proxy string) (*amazon.Product, error) {
 	productURL := fmt.Sprintf("https://%s/dp/%s?th=1&psc=1", host, asin)
 	// Create a new collector
+	ua := browser.Computer()
 	cy := colly.NewCollector(
-		colly.UserAgent(UserAgent),
+		colly.UserAgent(ua),
 		colly.AllowedDomains(host),
 	)
 
@@ -295,6 +298,9 @@ func GetAmzProduct(host, asin, proxy string) (*amazon.Product, error) {
 	}
 	if onError != nil {
 		return nil, onError
+	}
+	if len(product.ASIN) == 0 {
+		return nil, errors.New("len(product.ASIN)==0")
 	}
 	return product, nil
 }
