@@ -56,7 +56,8 @@ func (t *ProductDetailTask) GetStatus() interface{} {
 	return struct {
 		RuningPath  string        `json:"runing_path"`
 		PathsCount  int           `json:"paths_count"`
-		Status      string        `json:"status"`
+		StatusStr   string        `json:"status_str"`
+		Status      int           `json:"status"`
 		LastErr     string        `json:"last_err"`
 		SuccCount   int64         `json:"succ_count"`
 		FailCount   int64         `json:"fail_count"`
@@ -64,7 +65,8 @@ func (t *ProductDetailTask) GetStatus() interface{} {
 	}{
 		RuningPath:  t.runingPath,
 		PathsCount:  len(t.TaskPaths),
-		Status:      t.GetStatusString(),
+		StatusStr:   t.GetStatusString(),
+		Status:      t.Status,
 		LastErr:     t.lastErr,
 		ThreadInfos: t.threadInfos,
 		SuccCount:   atomic.LoadInt64(&t.succCount),
@@ -156,7 +158,7 @@ func (t *ProductDetailTask) Run(i int) {
 					t.AddAsin(asin)
 					threadinfo.Fail++
 					atomic.AddInt64(&t.failCount, 1)
-					threadinfo.LastErr = err.Error()
+					threadinfo.LastErr = fmt.Sprintf("%s:%s", asin, err.Error())
 					time.Sleep(time.Second * 10)
 					continue
 				}
