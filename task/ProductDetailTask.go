@@ -180,6 +180,16 @@ func (t *ProductDetailTask) Run(i int) {
 					}
 					continue
 				}
+				if strings.ToLower(asin) != strings.ToLower(product.ASIN) { // 需要更新asin
+					now := time.Now()
+					err := db.AMZProductInstance.UpdateAsin(asin, product.ASIN)
+					if err != nil {
+						threadinfo.LastErr = fmt.Sprintf("更新asin失败:%s", err.Error())
+						threadinfo.LastErrTime = time.Now().Unix()
+						return
+					}
+					fmt.Println("更新asin成功", asin, product.ASIN, time.Since(now).Seconds())
+				}
 				threadinfo.Succ++
 				robotCount = 0
 				if len(threadinfo.LastErr) > 0 && time.Now().Unix()-threadinfo.LastErrTime > 60 {

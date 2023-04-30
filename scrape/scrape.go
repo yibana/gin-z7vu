@@ -240,9 +240,9 @@ func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Produ
 				if brand, ok := detail["Brand"]; ok {
 					product.Brand = brand
 				}
-				/*if asin, ok := detail["ASIN"]; ok {
+				if asin, ok := detail["ASIN"]; ok {
 					product.ASIN = asin
-				}*/
+				}
 
 				if ranks, ok := detail["Best Sellers Rank"]; ok {
 					rank_arr := strings.Split(ranks, " #")
