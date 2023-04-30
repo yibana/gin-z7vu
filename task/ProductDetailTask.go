@@ -6,8 +6,13 @@ import (
 	"fmt"
 	"gin/db"
 	"gin/scrape"
+	browser "github.com/EDDYCJY/fake-useragent"
+	"github.com/gocolly/colly"
 	"go.mongodb.org/mongo-driver/bson"
+	"log"
 	"math/rand"
+	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -131,6 +136,23 @@ func (t *ProductDetailTask) Run(i int) {
 	threadinfo := t.threadInfos[i]
 	var GetAsinFailCount int
 	var robotCount int
+	ua := browser.Computer()
+	host := "www.amazon.ca"
+	proxy := threadinfo.Proxy
+	cy := colly.NewCollector(
+		colly.UserAgent(ua),
+		colly.AllowedDomains(host),
+	)
+	if len(proxy) > 0 {
+		// 设置代理IP
+		proxyURL, err := url.Parse(proxy)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cy.SetProxyFunc(func(_ *http.Request) (*url.URL, error) {
+			return proxyURL, nil
+		})
+	}
 	for {
 		select {
 		case <-t.ctx.Done():
@@ -156,7 +178,7 @@ func (t *ProductDetailTask) Run(i int) {
 					return
 				}
 				threadinfo.Info = fmt.Sprintf("正在处理asin:%s", asin)
-				product, err := scrape.GetAmzProduct(t.Host, asin, threadinfo.Proxy)
+				product, err := scrape.GetAmzProduct(cy, t.Host, asin, threadinfo.Proxy)
 				if err != nil {
 					if !strings.Contains(err.Error(), "Not Found") {
 						t.AddAsin(asin)

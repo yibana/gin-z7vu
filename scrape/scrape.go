@@ -117,24 +117,27 @@ func GetAmzProductList(_url, proxy string) ([]amazon.CategoryRank, error) {
 	return asins, nil
 }
 
-func GetAmzProduct(host, asin, proxy string) (*amazon.Product, error) {
+func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Product, error) {
 	productURL := fmt.Sprintf("https://%s/dp/%s?th=1&psc=1", host, asin)
 	// Create a new collector
 	ua := browser.Computer()
-	cy := colly.NewCollector(
-		colly.UserAgent(ua),
-		colly.AllowedDomains(host),
-	)
-
-	if len(proxy) > 0 {
-		// 设置代理IP
-		proxyURL, err := url.Parse(proxy)
-		if err != nil {
-			log.Fatal(err)
+	if cy == nil {
+		cy = colly.NewCollector(
+			colly.UserAgent(ua),
+			colly.AllowedDomains(host),
+		)
+		if len(proxy) > 0 {
+			// 设置代理IP
+			proxyURL, err := url.Parse(proxy)
+			if err != nil {
+				log.Fatal(err)
+			}
+			cy.SetProxyFunc(func(_ *http.Request) (*url.URL, error) {
+				return proxyURL, nil
+			})
 		}
-		cy.SetProxyFunc(func(_ *http.Request) (*url.URL, error) {
-			return proxyURL, nil
-		})
+	} else {
+		cy.UserAgent = ua
 	}
 
 	// Create a product object to store the extracted data
