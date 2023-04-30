@@ -1,10 +1,9 @@
 package routes
 
-import "go.mongodb.org/mongo-driver/bson"
-
 type ApiResult struct {
-	Error  string `json:"error"`
-	Status string `json:"status"`
+	Error  string      `json:"error"`
+	Status string      `json:"status"`
+	Result interface{} `json:"result"`
 }
 
 type redisResult struct {
@@ -19,12 +18,35 @@ type redisReq struct {
 	Exp   int    `json:"exp"`
 }
 
+type RedisCaseReq struct {
+	Key   string      `json:"key"`
+	Value interface{} `json:"value"`
+	Exp   int         `json:"exp"`
+	Case  string      `json:"case"`
+}
+
+type RedisCaseResult struct {
+	Key string `json:"key"`
+	ApiResult
+}
+
 type mongoAggregateResult struct {
 	ApiResult
-	Result []bson.M `json:"result"`
 }
 
 type mongoQueryResult struct {
 	ApiResult
-	Result []bson.M `json:"result"`
+}
+
+type taskPathsResult struct {
+	ApiResult
+}
+
+type taskProductDetailReq struct {
+	Cmd    string   `json:"cmd"`
+	Proxys []string `json:"proxys"`
+}
+
+type taskProductDetailResult struct {
+	ApiResult
 }

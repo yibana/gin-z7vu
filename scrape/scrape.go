@@ -236,6 +236,10 @@ func GetAmzProduct(host, asin, proxy string) (*amazon.Product, error) {
 				if brand, ok := detail["Brand"]; ok {
 					product.Brand = brand
 				}
+				if asin, ok := detail["ASIN"]; ok {
+					product.ASIN = asin
+				}
+
 				if ranks, ok := detail["Best Sellers Rank"]; ok {
 					rank_arr := strings.Split(ranks, " #")
 					if len(rank_arr) >= 2 {

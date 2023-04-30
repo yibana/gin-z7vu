@@ -21,7 +21,7 @@ type CategoryTask struct {
 	lastErr                  error
 }
 
-func NewTask() *CategoryTask {
+func NewCategoryTask() *CategoryTask {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &CategoryTask{ctx: ctx, cancel: cancel}
 }
@@ -60,7 +60,7 @@ func (t *CategoryTask) Run() {
 	for {
 		switch t.Status {
 		case 0:
-			time.Sleep(time.Second * 10)
+			return
 		case 1:
 			c := t.GetCategory()
 			if c == nil {

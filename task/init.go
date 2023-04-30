@@ -8,7 +8,8 @@ import (
 	"strings"
 )
 
-var TaskInstance = NewTask()
+var CategoryTaskInstance = NewCategoryTask()
+var ProductDetailTaskInstance = NewProductDetailTask("www.amazon.ca")
 var CategoryPaths = get_category_paths()
 
 type CategoryPath struct {
