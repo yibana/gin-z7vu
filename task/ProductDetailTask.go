@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -31,6 +32,8 @@ type ProductDetailTask struct {
 	Asins       []string
 	TaskPaths   []string
 	runingPath  string
+	succCount   int64
+	failCount   int64
 }
 
 func NewProductDetailTask(host string) *ProductDetailTask {
@@ -43,18 +46,27 @@ func (t *ProductDetailTask) Stop() {
 		return
 	}
 	t.Status = 2
+	t.lastErr = "手动停止"
 	t.cancel()
 }
 
 func (t *ProductDetailTask) GetStatus() interface{} {
 	return struct {
-		Status      int           `json:"status"`
+		RuningPath  string        `json:"runing_path"`
+		PathsCount  int           `json:"paths_count"`
+		Status      string        `json:"status"`
 		LastErr     string        `json:"last_err"`
 		ThreadInfos []*threadInfo `json:"thread_infos"`
+		SuccCount   int64         `json:"succ_count"`
+		FailCount   int64         `json:"fail_count"`
 	}{
-		Status:      t.Status,
+		RuningPath:  t.runingPath,
+		PathsCount:  len(t.TaskPaths),
+		Status:      t.GetStatusString(),
 		LastErr:     t.lastErr,
 		ThreadInfos: t.threadInfos,
+		SuccCount:   atomic.LoadInt64(&t.succCount),
+		FailCount:   atomic.LoadInt64(&t.failCount),
 	}
 }
 
@@ -75,6 +87,7 @@ func (t *ProductDetailTask) Start(proxys []string) error {
 			t.threadInfos = append(t.threadInfos, &threadInfo{Proxy: proxy})
 		}
 	}
+	t.ctx, t.cancel = context.WithCancel(context.Background())
 	go func() {
 		defer func() {
 			t.Status = 0
@@ -90,6 +103,7 @@ func (t *ProductDetailTask) Start(proxys []string) error {
 			}(i)
 		}
 		synctask.Wait()
+		t.lastErr = "任务完成"
 	}()
 	return nil
 }
@@ -125,11 +139,13 @@ func (t *ProductDetailTask) Run(i int) {
 				if err != nil {
 					t.AddAsin(asin)
 					threadinfo.Fail++
+					atomic.AddInt64(&t.failCount, 1)
 					threadinfo.LastErr = err.Error()
 					time.Sleep(time.Second * 5)
 					continue
 				}
 				threadinfo.Succ++
+				atomic.AddInt64(&t.succCount, 1)
 				// 保存到数据库
 				db.AMZProductDetailInstance.SaveProductDetail(product)
 				time.Sleep(time.Millisecond * 200)
@@ -233,6 +249,19 @@ func (t *ProductDetailTask) GetAsin() (asin string, err error) {
 	asin = asins[0]
 	t.Asins = asins[1:]
 	return
+}
+
+func (t *ProductDetailTask) GetStatusString() string {
+	switch t.Status {
+	case 0:
+		return "未开始"
+	case 1:
+		return "运行中"
+	case 2:
+		return "已停止"
+	default:
+		return "未知"
+	}
 }
 
 func GettaskAsin(path string) ([]string, error) {
