@@ -30,5 +30,8 @@ func main() {
 	r.GET("/task", routes.Task)
 	r.GET("/CategoryRankCountGroupByPath", routes.GetCategoryRankCountGroupByPath)
 	r.POST("/MongoAggregate", routes.MongoAggregate)
+	r.POST("/MongoFind", routes.MongoFind)
+	r.POST("/redis/set", routes.RedisSet)
+	r.GET("/redis/get", routes.RedisGet)
 	r.Run()
 }

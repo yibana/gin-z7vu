@@ -91,18 +91,3 @@ func (m *AMZ_Product_MonGo) GetCategoryRankCountGroupByPath() ([]bson.M, error) 
 	}
 	return result, nil
 }
-
-func (m *AMZ_Product_MonGo) MongoAggregate(query []bson.M) ([]bson.M, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	cursor, err := m.collection.Aggregate(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	var result []bson.M
-	err = cursor.All(ctx, &result)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}

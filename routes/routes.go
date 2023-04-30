@@ -1,7 +1,9 @@
 package routes
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"gin/amazon"
 	"gin/config"
@@ -178,12 +180,46 @@ func GetCategoryRankCountGroupByPath(c *gin.Context) {
 	c.Data(200, "application/json", bytes)
 }
 
-// MongoAggregate
-func MongoAggregate(c *gin.Context) {
-	var query []bson.M
-	err := json.NewDecoder(c.Request.Body).Decode(&query)
+func MongoFind(c *gin.Context) {
+	var query bson.M
+	var rsp mongoQueryResult
+	var err error
+	defer func() {
+		if err != nil {
+			rsp.Status = "error"
+			rsp.Error = err.Error()
+		} else {
+			rsp.Status = "ok"
+		}
+		c.JSON(http.StatusOK, rsp)
+	}()
+
+	err = json.NewDecoder(c.Request.Body).Decode(&query)
 	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	mongoQuery, err := db.AMZProductInstance.MongoFind(query)
+	if err != nil {
+		return
+	}
+	rsp.Result = mongoQuery
+}
+
+func MongoAggregate(c *gin.Context) {
+	var query bson.M
+	var rsp mongoAggregateResult
+	var err error
+	err = json.NewDecoder(c.Request.Body).Decode(&query)
+	defer func() {
+		if err != nil {
+			rsp.Status = "error"
+			rsp.Error = err.Error()
+		} else {
+			rsp.Status = "ok"
+		}
+		c.JSON(http.StatusOK, rsp)
+	}()
+	if err != nil {
 		return
 	}
 	// 生成缓存key
@@ -191,26 +227,64 @@ func MongoAggregate(c *gin.Context) {
 	redis_key := db.NewBaseRedisKey(time.Minute*10, string(marshal))
 	// 从缓存中获取
 	if bytes, ok := db.RedisCacheInstance.GetAPICache(redis_key); ok {
-		c.Data(200, "application/json", bytes)
+		err = json.Unmarshal(bytes, &rsp.Result)
 		return
 	}
-
-	result, err := db.AMZProductInstance.MongoAggregate(query)
+	var result []bson.M
+	result, err = db.AMZProductInstance.MongoAggregate(query)
 	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
 	if len(result) == 0 {
-		c.Data(200, "application/json", []byte("[]"))
+		err = errors.New("result is empty")
 		return
 	}
-
-	bytes, err := json.MarshalIndent(result, "", "  ")
+	var bytes []byte
+	bytes, err = json.MarshalIndent(result, "", "  ")
 	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
 	// 缓存结果
 	db.RedisCacheInstance.SetAPICache(bytes, redis_key)
-	c.Data(200, "application/json", bytes)
+	rsp.Result = result
+}
+
+func RedisSet(c *gin.Context) {
+	var result redisResult
+	var req redisReq
+	err := json.NewDecoder(c.Request.Body).Decode(&req)
+	if err != nil {
+		result.Error = err.Error()
+		result.Status = "error"
+		c.JSON(200, result)
+	}
+	key := fmt.Sprintf("RedisSet:%s", req.Key)
+	value := req.Value
+	exp_int := req.Exp
+	err = db.RedisCacheInstance.Redis_client.Set(context.Background(), key, value, time.Duration(exp_int)).Err()
+	if err != nil {
+		result.Error = err.Error()
+		result.Status = "error"
+	} else {
+		result.Status = "ok"
+		result.Key = key
+		result.Value = value
+	}
+	c.JSON(200, result)
+}
+
+func RedisGet(c *gin.Context) {
+	var result redisResult
+	key := c.DefaultQuery("key", "test")
+	key = fmt.Sprintf("RedisSet:%s", key)
+	value, err := db.RedisCacheInstance.Redis_client.Get(context.Background(), key).Result()
+	if err != nil {
+		result.Error = err.Error()
+		result.Status = "error"
+	} else {
+		result.Status = "ok"
+		result.Key = key
+		result.Value = value
+	}
+	c.JSON(200, result)
 }
