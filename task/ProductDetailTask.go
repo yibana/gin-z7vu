@@ -155,7 +155,10 @@ func (t *ProductDetailTask) Run(i int) {
 				threadinfo.Info = fmt.Sprintf("正在处理asin:%s", asin)
 				product, err := scrape.GetAmzProduct(t.Host, asin, threadinfo.Proxy)
 				if err != nil {
-					t.AddAsin(asin)
+					if !strings.Contains(err.Error(), "Not Found") {
+						t.AddAsin(asin)
+					}
+
 					threadinfo.Fail++
 					atomic.AddInt64(&t.failCount, 1)
 					threadinfo.LastErr = fmt.Sprintf("%s:%s", asin, err.Error())
