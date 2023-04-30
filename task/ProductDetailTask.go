@@ -78,7 +78,7 @@ func (t *ProductDetailTask) GetStatus() interface{} {
 func (t *ProductDetailTask) SleepRandomDelay() {
 	if t.RandomDelay > 0 {
 		// min-max
-		min := 1000
+		min := 2000
 		max := t.RandomDelay
 		if max < min {
 			max = min
@@ -161,6 +161,11 @@ func (t *ProductDetailTask) Run(i int) {
 					if !strings.Contains(err.Error(), "Not Found") {
 						t.AddAsin(asin)
 					}
+
+					threadinfo.Fail++
+					atomic.AddInt64(&t.failCount, 1)
+					threadinfo.LastErr = fmt.Sprintf("%s:%s", asin, err.Error())
+					threadinfo.LastErrTime = time.Now().Unix()
 					if strings.Contains(err.Error(), "robot") || strings.Contains(err.Error(), "Service Unavailable") {
 						robotCount++
 						fmt.Println("robot || Service Unavailable", robotCount*60)
@@ -170,13 +175,9 @@ func (t *ProductDetailTask) Run(i int) {
 								break
 							}
 						}
+					} else {
+						time.Sleep(time.Second * 10)
 					}
-
-					threadinfo.Fail++
-					atomic.AddInt64(&t.failCount, 1)
-					threadinfo.LastErr = fmt.Sprintf("%s:%s", asin, err.Error())
-					threadinfo.LastErrTime = time.Now().Unix()
-					time.Sleep(time.Second * 10)
 					continue
 				}
 				threadinfo.Succ++
