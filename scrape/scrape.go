@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
+const UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
 
 func GetAmzProductList(_url, proxy string) ([]amazon.CategoryRank, error) {
 	host := strings.Split(_url, "/")[2]
