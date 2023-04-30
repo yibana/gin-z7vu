@@ -7,6 +7,7 @@ import (
 	"gin/db"
 	"gin/scrape"
 	"go.mongodb.org/mongo-driver/bson"
+	"math/rand"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -34,6 +35,7 @@ type ProductDetailTask struct {
 	runingPath  string
 	succCount   int64
 	failCount   int64
+	RandomDelay int
 }
 
 func NewProductDetailTask(host string) *ProductDetailTask {
@@ -70,7 +72,20 @@ func (t *ProductDetailTask) GetStatus() interface{} {
 	}
 }
 
-func (t *ProductDetailTask) Start(proxys []string) error {
+func (t *ProductDetailTask) SleepRandomDelay() {
+	if t.RandomDelay > 0 {
+		// min-max
+		min := 100
+		max := t.RandomDelay
+		if max < min {
+			max = min
+		}
+		randNum := rand.Intn(max-min) + min
+		time.Sleep(time.Duration(randNum) * time.Millisecond)
+	}
+}
+
+func (t *ProductDetailTask) Start(proxys []string, RandomDelay int) error {
 	if t.Status != 0 {
 		return fmt.Errorf("task is running")
 	}
@@ -78,6 +93,7 @@ func (t *ProductDetailTask) Start(proxys []string) error {
 	if err != nil {
 		return err
 	}
+	t.RandomDelay = RandomDelay
 	t.Status = 1
 	t.lastErr = ""
 	t.threadInfos = make([]*threadInfo, 0)
@@ -148,7 +164,7 @@ func (t *ProductDetailTask) Run(i int) {
 				atomic.AddInt64(&t.succCount, 1)
 				// 保存到数据库
 				db.AMZProductDetailInstance.SaveProductDetail(product)
-				time.Sleep(time.Millisecond * 200)
+				t.SleepRandomDelay()
 			default:
 				threadinfo.Info = fmt.Sprintf("任务已停止：%d", t.Status)
 				return

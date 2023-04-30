@@ -53,7 +53,7 @@ func ProductDetail(c *gin.Context) {
 	cmd := ProductDetailReq.Cmd
 	switch cmd {
 	case "start":
-		err = task.ProductDetailTaskInstance.Start(ProductDetailReq.Proxys)
+		err = task.ProductDetailTaskInstance.Start(ProductDetailReq.Proxys, ProductDetailReq.RandomDelay)
 	case "ResetPaths":
 		err = task.ProductDetailTaskInstance.ResetPaths()
 		fmt.Println(task.ProductDetailTaskInstance.TaskPaths)

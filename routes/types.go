@@ -43,8 +43,9 @@ type taskPathsResult struct {
 }
 
 type taskProductDetailReq struct {
-	Cmd    string   `json:"cmd"`
-	Proxys []string `json:"proxys"`
+	Cmd         string   `json:"cmd"`
+	Proxys      []string `json:"proxys"`
+	RandomDelay int      `json:"random_delay"`
 }
 
 type taskProductDetailResult struct {
