@@ -200,7 +200,7 @@ func (t *ProductDetailTask) GetAsin(Proxy string) (asin string, err error) {
 		t.runingPath = t.TaskPaths[0]
 		err = UpdateAsinList(t.runingPath, Proxy) // 实时更新asin列表
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("更新asin列表失败:%s", err.Error())
 		}
 		t.TaskPaths = t.TaskPaths[1:]
 		asins, err = GetTaskAsin(t.runingPath)
