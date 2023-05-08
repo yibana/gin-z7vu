@@ -2,7 +2,6 @@ package scrape
 
 import (
 	"crypto/sha256"
-	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -12,7 +11,6 @@ import (
 	"github.com/gocolly/colly/v2"
 	"github.com/gocolly/colly/v2/extensions"
 	"log"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -140,23 +138,23 @@ func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Produ
 				return proxyURL, nil
 			})
 		}
-		var Proxy func(*http.Request) (*url.URL, error)
-		if proxyURL == nil {
-			Proxy = http.ProxyFromEnvironment
-		} else {
-			Proxy = http.ProxyURL(proxyURL)
-		}
+		/*		var Proxy func(*http.Request) (*url.URL, error)
+				if proxyURL == nil {
+					Proxy = http.ProxyFromEnvironment
+				} else {
+					Proxy = http.ProxyURL(proxyURL)
+				}*/
 
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			Proxy:           Proxy,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
-			ForceAttemptHTTP2: true,
-		}
-		cy.WithTransport(tr)
+		/*		tr := &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+					Proxy:           Proxy,
+					DialContext: (&net.Dialer{
+						Timeout:   30 * time.Second,
+						KeepAlive: 30 * time.Second,
+					}).DialContext,
+					ForceAttemptHTTP2: true,
+				}
+				cy.WithTransport(tr)*/
 		extensions.RandomUserAgent(cy)
 	}
 
