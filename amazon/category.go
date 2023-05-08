@@ -65,6 +65,13 @@ type TreeNode struct {
 	Children []*TreeNode `json:"children"`
 }
 
+type TreeSelect struct {
+	Key      string        `json:"key"`
+	Label    string        `json:"label"`
+	Data     string        `json:"data"`
+	Children []*TreeSelect `json:"children,omitempty"`
+}
+
 func ConvertToTreeNode(Path string, category *Category) *TreeNode {
 	value := category.Name
 	if len(Path) > 0 {
@@ -82,6 +89,28 @@ func ConvertToTreeNode(Path string, category *Category) *TreeNode {
 		treeNode.Value = fmt.Sprintf("%s(%d)", value, rand.Intn(10000))
 	} else {
 		treeNode.Value = fmt.Sprintf("[End%d]%s", rand.Intn(10000), value)
+	}
+	return treeNode
+}
+
+func ConvertToTreeSelect(Key, Path string, category *Category) *TreeSelect {
+	value := category.Name
+	if len(Path) > 0 {
+		value = fmt.Sprintf("%s > %s", Path, category.Name)
+	}
+	treeNode := &TreeSelect{
+		Data:  value,
+		Label: category.Name,
+		Key:   Key,
+	}
+	if len(category.Sub) > 0 {
+		treeNode.Children = make([]*TreeSelect, len(category.Sub))
+		for i, sub := range category.Sub {
+			treeNode.Children[i] = ConvertToTreeSelect(fmt.Sprintf("%s-%d", Key, i), value, sub)
+		}
+		//treeNode.Data = fmt.Sprintf("%s(%d)", value, rand.Intn(10000))
+	} else {
+		//treeNode.Data = fmt.Sprintf("[End%d]%s", rand.Intn(10000), value)
 	}
 	return treeNode
 }

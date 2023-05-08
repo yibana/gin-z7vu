@@ -1,14 +1,18 @@
 package scrape
 
 import (
+	"crypto/sha256"
+	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"gin/amazon"
 	"gin/utils"
-	"github.com/EDDYCJY/fake-useragent"
-	"github.com/gocolly/colly"
+	"github.com/gocolly/colly/v2"
+	"github.com/gocolly/colly/v2/extensions"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -120,15 +124,15 @@ func GetAmzProductList(_url, proxy string) ([]amazon.CategoryRank, error) {
 func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Product, error) {
 	productURL := fmt.Sprintf("https://%s/dp/%s?th=1&psc=1", host, asin)
 	// Create a new collector
-	ua := browser.Computer()
 	if cy == nil {
 		cy = colly.NewCollector(
-			colly.UserAgent(ua),
 			colly.AllowedDomains(host),
 		)
+		var proxyURL *url.URL
+		var err error
 		if len(proxy) > 0 {
 			// 设置代理IP
-			proxyURL, err := url.Parse(proxy)
+			proxyURL, err = url.Parse(proxy)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -136,6 +140,24 @@ func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Produ
 				return proxyURL, nil
 			})
 		}
+		var Proxy func(*http.Request) (*url.URL, error)
+		if proxyURL == nil {
+			Proxy = http.ProxyFromEnvironment
+		} else {
+			Proxy = http.ProxyURL(proxyURL)
+		}
+
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			Proxy:           Proxy,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			ForceAttemptHTTP2: true,
+		}
+		cy.WithTransport(tr)
+		extensions.RandomUserAgent(cy)
 	}
 
 	// Create a product object to store the extracted data
@@ -318,4 +340,22 @@ func getAmzTable(e *colly.HTMLElement, goquerySelector string) map[string]string
 		})
 	})
 	return table
+}
+
+// MyFingerprinter 实现了 tlsfingerprint.Fingerprinter 接口，用于计算 TLS 指纹
+type MyFingerprinter struct{}
+
+func (f *MyFingerprinter) Fingerprint(transport *http.Transport) (string, error) {
+	// 获取证书
+	certs := transport.TLSClientConfig.Certificates
+
+	// 计算所有证书的 SHA256 哈希值
+	hash := sha256.New()
+	for _, cert := range certs {
+		hash.Write(cert.Certificate[0])
+	}
+	sum := hash.Sum(nil)
+
+	// 返回十六进制格式的哈希值
+	return hex.EncodeToString(sum), nil
 }
