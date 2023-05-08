@@ -134,7 +134,7 @@ func (t *ProductDetailTask) Run(i int) {
 func (t *ProductDetailTask) ResetDonePaths() error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
-	_, err := db.RedisCacheInstance.Redis_client.Del(t.ctx, redisKey_ProductDetailTask_done_paths).Result()
+	_, err := db.RedisCacheInstance.Redis_client.Del(context.Background(), redisKey_ProductDetailTask_done_paths).Result()
 	if err != nil {
 		return err
 	}
