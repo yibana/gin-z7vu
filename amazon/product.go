@@ -35,6 +35,7 @@ type Product struct {
 	Images           []string            `json:"images,omitempty"`          // 产品图片
 	ProductValues    ProductValues       `json:"productValues,omitempty"`
 	DeliveryInfo     DeliveryInfo        `json:"deliveryInfo,omitempty"`
+	LastTime         int64               `json:"lastTime"` // 最后更新时间
 }
 
 func MerchantInfo2DeliveryInfo(MerchantInfo string) (dinfo DeliveryInfo) {

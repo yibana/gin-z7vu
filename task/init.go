@@ -10,6 +10,9 @@ import (
 
 var CategoryTaskInstance = NewCategoryTask()
 var ProductDetailTaskInstance = NewProductDetailTask("www.amazon.ca")
+
+var ProductTaskInstance = NewProductTask()
+
 var CategoryPaths = get_category_paths()
 
 type CategoryPath struct {

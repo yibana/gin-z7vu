@@ -20,6 +20,7 @@ func (m *AMZ_ProductDetail_Mongo) SaveProductDetail(product *amazon.Product) err
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	// 如果asin已经存在，则更新，否则插入
+	product.LastTime = time.Now().Unix()
 	filter := map[string]interface{}{"asin": product.ASIN}
 	update := map[string]interface{}{"$set": product}
 	_, err := m.collection.UpdateOne(ctx, filter, update, options.Update().SetUpsert(true))

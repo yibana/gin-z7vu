@@ -4,87 +4,37 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"gin/amazon"
 	"gin/db"
 	"gin/scrape"
 	"go.mongodb.org/mongo-driver/bson"
-	"math/rand"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 )
 
-type threadInfo struct {
-	Proxy       string `json:"proxy"`
-	Succ        int    `json:"succ"`
-	Fail        int    `json:"fail"`
-	Info        string `json:"info"`
-	LastErr     string `json:"last_err"`
-	LastErrTime int64  `json:"lastErrTime"`
-}
-
 type ProductDetailTask struct {
-	ctx         context.Context
-	cancel      context.CancelFunc
-	Status      int // 0:未开始 1:运行中 2:已停止
-	lastErr     string
-	lock        sync.Mutex
-	threadInfos []*threadInfo
-	Host        string
-	Asins       []string
-	TaskPaths   []string
-	runingPath  string
-	succCount   int64
-	failCount   int64
-	RandomDelay int
+	*BaseTask
+	Asins      []string
+	TaskPaths  []string
+	runingPath string
 }
 
 func NewProductDetailTask(host string) *ProductDetailTask {
-	ctx, cancel := context.WithCancel(context.Background())
-	return &ProductDetailTask{ctx: ctx, cancel: cancel, Host: host}
+	return &ProductDetailTask{BaseTask: NewBaseTask(host)}
 }
 
-func (t *ProductDetailTask) Stop() {
-	if t.Status != 1 {
-		return
-	}
-	t.Status = 2
-	t.lastErr = "手动停止"
-	t.cancel()
-}
+const redisKey_ProductDetailTask_done_paths = "ProductDetailTask:done:paths:v2"
+const redisKey_CategoryTree_checked = "RedisSet:CategoryTree:checked"
 
 func (t *ProductDetailTask) GetStatus() interface{} {
 	return struct {
-		RuningPath  string        `json:"runing_path"`
-		PathsCount  int           `json:"paths_count"`
-		StatusStr   string        `json:"status_str"`
-		Status      int           `json:"status"`
-		LastErr     string        `json:"last_err"`
-		SuccCount   int64         `json:"succ_count"`
-		FailCount   int64         `json:"fail_count"`
-		ThreadInfos []*threadInfo `json:"thread_infos"`
+		RuningPath string `json:"runing_path"`
+		PathsCount int    `json:"paths_count"`
+		taskStatus
 	}{
-		RuningPath:  t.runingPath,
-		PathsCount:  len(t.TaskPaths),
-		StatusStr:   t.GetStatusString(),
-		Status:      t.Status,
-		LastErr:     t.lastErr,
-		ThreadInfos: t.threadInfos,
-		SuccCount:   atomic.LoadInt64(&t.succCount),
-		FailCount:   atomic.LoadInt64(&t.failCount),
-	}
-}
-
-func (t *ProductDetailTask) SleepRandomDelay() {
-	if t.RandomDelay > 0 {
-		// min-max
-		min := 2000
-		max := t.RandomDelay
-		if max < min {
-			max = min
-		}
-		randNum := rand.Intn(max-min) + min
-		time.Sleep(time.Duration(randNum) * time.Millisecond)
+		RuningPath: t.runingPath,
+		PathsCount: len(t.TaskPaths),
+		taskStatus: t.BaseTask.GetStatus().(taskStatus),
 	}
 }
 
@@ -96,35 +46,7 @@ func (t *ProductDetailTask) Start(proxys []string, RandomDelay int) error {
 	if err != nil {
 		return err
 	}
-	t.RandomDelay = RandomDelay
-	t.Status = 1
-	t.lastErr = ""
-	t.threadInfos = make([]*threadInfo, 0)
-	t.threadInfos = append(t.threadInfos, &threadInfo{Proxy: ""})
-	for _, proxy := range proxys {
-		if len(proxy) > 0 {
-			t.threadInfos = append(t.threadInfos, &threadInfo{Proxy: proxy})
-		}
-	}
-	t.ctx, t.cancel = context.WithCancel(context.Background())
-	go func() {
-		defer func() {
-			t.Status = 0
-		}()
-		synctask := sync.WaitGroup{}
-		for i, _ := range t.threadInfos {
-			synctask.Add(1)
-			go func(i int) {
-				defer func() {
-					synctask.Done()
-				}()
-				t.Run(i)
-			}(i)
-		}
-		synctask.Wait()
-		t.lastErr = "任务完成"
-	}()
-	return nil
+	return t.BaseTask.Start(proxys, RandomDelay, t.Run)
 }
 
 func (t *ProductDetailTask) Run(i int) {
@@ -138,7 +60,7 @@ func (t *ProductDetailTask) Run(i int) {
 		default:
 			switch t.Status {
 			case 1:
-				asin, err := t.GetAsin()
+				asin, err := t.GetAsin(threadinfo.Proxy)
 				if err != nil {
 					GetAsinFailCount++
 					if GetAsinFailCount > 3 {
@@ -165,7 +87,7 @@ func (t *ProductDetailTask) Run(i int) {
 					}
 
 					threadinfo.Fail++
-					atomic.AddInt64(&t.failCount, 1)
+					t.AddFailCount()
 					threadinfo.LastErr = fmt.Sprintf("%s:%s", asin, err.Error())
 					threadinfo.LastErrTime = time.Now().Unix()
 					if strings.Contains(err.Error(), "robot") || strings.Contains(err.Error(), "Service Unavailable") {
@@ -197,7 +119,7 @@ func (t *ProductDetailTask) Run(i int) {
 				if len(threadinfo.LastErr) > 0 && time.Now().Unix()-threadinfo.LastErrTime > 60 {
 					threadinfo.LastErr = ""
 				}
-				atomic.AddInt64(&t.succCount, 1)
+				t.AddSuccessCount()
 				// 保存到数据库
 				db.AMZProductDetailInstance.SaveProductDetail(product)
 				t.SleepRandomDelay()
@@ -212,8 +134,7 @@ func (t *ProductDetailTask) Run(i int) {
 func (t *ProductDetailTask) ResetDonePaths() error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
-	redisKey := "ProductDetailTask:done:paths"
-	_, err := db.RedisCacheInstance.Redis_client.Del(t.ctx, redisKey).Result()
+	_, err := db.RedisCacheInstance.Redis_client.Del(t.ctx, redisKey_ProductDetailTask_done_paths).Result()
 	if err != nil {
 		return err
 	}
@@ -224,9 +145,8 @@ func (t *ProductDetailTask) ResetPaths() error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	var err error
-	redisKey := "RedisSet:CategoryTree:checked"
 	var checked string
-	checked, err = db.RedisCacheInstance.TextGet(redisKey)
+	checked, err = db.RedisCacheInstance.TextGet(redisKey_CategoryTree_checked)
 	if err != nil {
 		return err
 	}
@@ -246,9 +166,8 @@ func (t *ProductDetailTask) ResetPaths() error {
 	}
 
 	// 获取已经完成的paths
-	redisKey = "ProductDetailTask:done:paths"
 	var donePaths []string
-	donePaths, err = db.RedisCacheInstance.TextListGet(redisKey)
+	donePaths, err = db.RedisCacheInstance.TextListGet(redisKey_ProductDetailTask_done_paths)
 	if err != nil {
 		return err
 	}
@@ -267,7 +186,7 @@ func (t *ProductDetailTask) AddAsin(asin string) {
 	t.Asins = append(t.Asins, asin)
 }
 
-func (t *ProductDetailTask) GetAsin() (asin string, err error) {
+func (t *ProductDetailTask) GetAsin(Proxy string) (asin string, err error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	if len(t.Asins) > 0 {
@@ -279,8 +198,12 @@ func (t *ProductDetailTask) GetAsin() (asin string, err error) {
 	var asins []string
 	for len(t.TaskPaths) > 0 {
 		t.runingPath = t.TaskPaths[0]
+		err = UpdateAsinList(t.runingPath, Proxy) // 实时更新asin列表
+		if err != nil {
+			return "", err
+		}
 		t.TaskPaths = t.TaskPaths[1:]
-		asins, err = GettaskAsin(t.runingPath)
+		asins, err = GetTaskAsin(t.runingPath)
 		if err != nil {
 			return "", err
 		}
@@ -288,8 +211,7 @@ func (t *ProductDetailTask) GetAsin() (asin string, err error) {
 			break
 		}
 		// 记录已经完成的path
-		redisKey := "ProductDetailTask:done:paths"
-		err = db.RedisCacheInstance.TextListPush(redisKey, t.runingPath)
+		err = db.RedisCacheInstance.TextListPush(redisKey_ProductDetailTask_done_paths, t.runingPath)
 		if err != nil {
 			return "", err
 		}
@@ -303,24 +225,61 @@ func (t *ProductDetailTask) GetAsin() (asin string, err error) {
 	return
 }
 
-func (t *ProductDetailTask) GetStatusString() string {
-	switch t.Status {
-	case 0:
-		return "未开始"
-	case 1:
-		return "运行中"
-	case 2:
-		return "已停止"
-	default:
-		return "未知"
+func UpdateAsinList(path, proxy string) error {
+	key := fmt.Sprintf("CategoryPathFlag:v2:%s", path)
+	exist, err2 := db.RedisCacheInstance.Exist(key)
+	if err2 != nil {
+		return err2
 	}
+	if exist {
+		return nil
+	}
+
+	var url string
+	for _, categoryPath := range CategoryPaths {
+		if path == categoryPath.Path {
+			url = categoryPath.Url
+			break
+		}
+	}
+	if len(url) == 0 {
+		return fmt.Errorf("没有找到url")
+	}
+	// 更新asin列表
+	var list []amazon.CategoryRank
+	var err error
+	list, err = scrape.GetAmzProductList(url, proxy)
+	if err != nil {
+		return err
+	}
+	if len(list) > 0 {
+		// 保存到数据库
+		var slist = make([]*amazon.CategoryRank, 0, len(list))
+		for i, _ := range list {
+			slist = append(slist, &list[i])
+		}
+		err = db.AMZProductInstance.BatchSaveCategoryRank(slist)
+		if err != nil {
+			return err
+		}
+		// 标记已经更新过
+		err = db.RedisCacheInstance.Redis_client.Set(context.Background(), key, 1, time.Hour*48).Err()
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
 }
 
-func GettaskAsin(path string) ([]string, error) {
+func GetTaskAsin(path string) ([]string, error) {
 	pipeline := []bson.M{
 		{"$match": bson.M{"path": bson.M{"$in": []string{path}}}},
 		{"$lookup": bson.M{"from": "ProductDetail", "localField": "id", "foreignField": "asin", "as": "ProductDetail"}},
-		{"$match": bson.M{"ProductDetail.asin": bson.M{"$exists": false}}},
+		{"$match": bson.M{"$or": bson.A{
+			bson.M{"ProductDetail.lasttime": bson.M{"$exists": false}},
+			bson.M{"ProductDetail.lasttime": bson.M{"$lt": time.Now().Add(time.Hour * 24)}},
+		}}},
 		{"$group": bson.M{"_id": "$id", "count": bson.M{"$sum": 1}}},
 		{"$project": bson.M{"_id": 1, "count": 1}},
 		{"$limit": 1000},
