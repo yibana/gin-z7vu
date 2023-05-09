@@ -13,12 +13,21 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
 
 const UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
 
+func extractBrandName(text string) string {
+	pattern := regexp.MustCompile(`Visit the (.*?) Store`)
+	match := pattern.FindStringSubmatch(text)
+	if len(match) > 1 {
+		return match[1]
+	}
+	return text
+}
 func GetAmzProductList(_url, proxy string) ([]amazon.CategoryRank, error) {
 	host := strings.Split(_url, "/")[2]
 	cy := colly.NewCollector(
@@ -262,6 +271,10 @@ func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Produ
 				}
 				if asin, ok := detail["ASIN"]; ok {
 					product.ASIN = asin
+				}
+
+				if len(product.Brand) > 0 {
+					product.Brand = extractBrandName(product.Brand)
 				}
 
 				if ranks, ok := detail["Best Sellers Rank"]; ok {

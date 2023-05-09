@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"gin/amazon"
+	"gin/config"
 	"gin/db"
 	"gin/scrape"
 	"go.mongodb.org/mongo-driver/bson"
@@ -122,6 +123,9 @@ func (t *ProductDetailTask) Run(i int) {
 				t.AddSuccessCount()
 				// 保存到数据库
 				db.AMZProductDetailInstance.SaveProductDetail(product)
+				if len(product.Brand) > 0 {
+					db.AMZBrandInstance.UpBrand(config.APIClientInstance, product.Brand)
+				}
 				t.SleepRandomDelay()
 			default:
 				threadinfo.Info = fmt.Sprintf("任务已停止：%d", t.Status)

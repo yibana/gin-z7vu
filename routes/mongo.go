@@ -3,6 +3,7 @@ package routes
 import (
 	"encoding/json"
 	"errors"
+	"gin/config"
 	"gin/db"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -43,6 +44,32 @@ func MongoFind(c *gin.Context) {
 		return
 	}
 	mongoQuery, err := db.AMZProductInstance.MongoFind(query)
+	if err != nil {
+		return
+	}
+	rsp.Result = mongoQuery
+}
+
+func QueryBrand(c *gin.Context) {
+	brand := c.DefaultQuery("brand", "")
+	var rsp mongoQueryResult
+	var err error
+	defer func() {
+		if err != nil {
+			rsp.Status = "error"
+			rsp.Error = err.Error()
+		} else {
+			rsp.Status = "ok"
+		}
+		c.JSON(http.StatusOK, rsp)
+	}()
+
+	if brand == "" {
+		err = errors.New("brand is empty")
+		return
+	}
+
+	mongoQuery, err := db.AMZBrandInstance.UpBrand(config.APIClientInstance, brand)
 	if err != nil {
 		return
 	}

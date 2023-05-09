@@ -138,6 +138,9 @@ func GetProduct(c *gin.Context) {
 	}
 	// 将product保存到mongodb数据库
 	db.AMZProductDetailInstance.SaveProductDetail(product)
+	if len(product.Brand) > 0 {
+		db.AMZBrandInstance.UpBrand(config.APIClientInstance, product.Brand)
+	}
 
 	c.Data(200, "application/json", marshal)
 }

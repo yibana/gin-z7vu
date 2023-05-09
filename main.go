@@ -37,5 +37,6 @@ func main() {
 	r.GET("/redis/get", routes.RedisGet)
 	r.POST("/redis/case", routes.RedisCase)
 	r.GET("/TaskPaths", routes.TaskPaths)
+	r.GET("/query/brand", routes.QueryBrand)
 	r.Run()
 }
