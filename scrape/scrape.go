@@ -9,7 +9,6 @@ import (
 	"gin/amazon"
 	"gin/utils"
 	"github.com/gocolly/colly/v2"
-	"github.com/gocolly/colly/v2/extensions"
 	"log"
 	"net/http"
 	"net/url"
@@ -130,9 +129,10 @@ func GetAmzProductList(_url, proxy string) ([]amazon.CategoryRank, error) {
 
 func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Product, error) {
 	productURL := fmt.Sprintf("https://%s/dp/%s?th=1&psc=1", host, asin)
-	// Create a new collector
+	useragent := UserAgent
 	if cy == nil {
 		cy = colly.NewCollector(
+			colly.UserAgent(useragent),
 			colly.AllowedDomains(host),
 		)
 		var proxyURL *url.URL
@@ -164,7 +164,7 @@ func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Produ
 					ForceAttemptHTTP2: true,
 				}
 				cy.WithTransport(tr)*/
-		extensions.RandomUserAgent(cy)
+		//extensions.RandomUserAgent(cy)
 	}
 
 	// Create a product object to store the extracted data
