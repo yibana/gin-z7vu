@@ -24,7 +24,7 @@ git reset --hard HEAD
 git pull
 # 编译
 echo "Building binary..."
-go build -o gin
+go build -o gin main.go
 
 
 

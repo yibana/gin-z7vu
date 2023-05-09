@@ -10,6 +10,7 @@ import (
 	"github.com/tealeg/xlsx"
 	"go.mongodb.org/mongo-driver/bson"
 	"net/http"
+	"sort"
 	"time"
 )
 
@@ -82,6 +83,9 @@ func DownloadQuery(c *gin.Context) {
 		for key := range results[0] {
 			header = append(header, key)
 		}
+		// 对header进行排序
+		sort.Strings(header)
+
 		// 将查询结果转换为 Excel 文档
 		file := xlsx.NewFile()
 		var sheet *xlsx.Sheet
