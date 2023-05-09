@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"gin/backfill"
 	"gin/config"
 	"gin/db"
 	"gin/scrape"
@@ -15,49 +16,9 @@ func main() {
 	case "fixBrand":
 		fix_brand()
 	case "upBrand":
-		up_brand()
-	}
-}
-
-func up_brand() {
-	json_data := `{
-    "collection":"ProductDetail",
-    "time": 12345,
-    "pipeline":[
-    {
-        "$match": {
-            "brand": {
-                "$ne": ""
-            }
-        }
-    },
-    {
-        "$group": {
-            "_id": "$brand",
-            "count": {
-                "$sum": 1
-            }
-        }
-    }
-]
-}`
-	var query bson.M
-	err := bson.UnmarshalExtJSON([]byte(json_data), true, &query)
-	if err != nil {
-		panic(err)
-	}
-	mongoQuery, err := db.AMZProductInstance.MongoAggregate(query)
-	if err != nil {
-		panic(err)
-	}
-	count := len(mongoQuery)
-	for i, v := range mongoQuery {
-		brand := v["_id"].(string)
-		if len(brand) == 0 {
-			continue
-		}
-		fmt.Printf("当前:%d 剩余%d [%d]更新[%s]\n", i, count-i, v["count"], brand)
-		db.AMZBrandInstance.UpBrand(config.APIClientInstance, brand)
+		backfill.BackFill_up_brand()
+	case "test":
+		db.AMZBrandInstance.UpBrand(config.APIClientInstance, "DoceMora")
 	}
 }
 

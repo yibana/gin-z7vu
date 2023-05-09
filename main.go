@@ -1,6 +1,7 @@
 package main
 
 import (
+	"gin/backfill"
 	"gin/routes"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -9,6 +10,7 @@ import (
 var Router *gin.Engine
 
 func main() {
+	backfill.AutoBackFill()
 	r := gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{"*"}
