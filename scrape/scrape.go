@@ -20,7 +20,7 @@ import (
 
 const UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
 
-func extractBrandName(text string) string {
+func ExtractBrandName(text string) string {
 	pattern := regexp.MustCompile(`Visit the (.*?) Store`)
 	match := pattern.FindStringSubmatch(text)
 	if len(match) > 1 {
@@ -274,7 +274,7 @@ func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Produ
 				}
 
 				if len(product.Brand) > 0 {
-					product.Brand = extractBrandName(product.Brand)
+					product.Brand = ExtractBrandName(product.Brand)
 				}
 
 				if ranks, ok := detail["Best Sellers Rank"]; ok {

@@ -38,5 +38,6 @@ func main() {
 	r.POST("/redis/case", routes.RedisCase)
 	r.GET("/TaskPaths", routes.TaskPaths)
 	r.GET("/query/brand", routes.QueryBrand)
+	r.POST("/download/query", routes.DownloadQuery)
 	r.Run()
 }

@@ -1,11 +1,13 @@
 package routes
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"gin/config"
 	"gin/db"
 	"github.com/gin-gonic/gin"
+	"github.com/tealeg/xlsx"
 	"go.mongodb.org/mongo-driver/bson"
 	"net/http"
 	"time"
@@ -48,6 +50,68 @@ func MongoFind(c *gin.Context) {
 		return
 	}
 	rsp.Result = mongoQuery
+}
+
+func DownloadQuery(c *gin.Context) {
+	var query bson.M
+	var rsp mongoQueryResult
+	var err error
+	defer func() {
+		if err != nil {
+			rsp.Status = "error"
+			rsp.Error = err.Error()
+		} else {
+			rsp.Status = "ok"
+		}
+		c.JSON(http.StatusOK, rsp)
+	}()
+
+	err = json.NewDecoder(c.Request.Body).Decode(&query)
+	if err != nil {
+		return
+	}
+	results, err := db.AMZProductInstance.MongoAggregate(query)
+	if err != nil {
+		return
+	}
+	rsp.Result = results
+	// 将查询结果转换为CSV格式文档
+	if len(results) > 0 {
+		// 获取CSV头部信息
+		header := make([]string, 0, len(results[0]))
+		for key := range results[0] {
+			header = append(header, key)
+		}
+		// 将查询结果转换为 Excel 文档
+		file := xlsx.NewFile()
+		var sheet *xlsx.Sheet
+		sheet, err = file.AddSheet("Result")
+		if err != nil {
+			return
+		}
+		row := sheet.AddRow()
+		for _, h := range header {
+			row.AddCell().SetValue(h)
+		}
+		for _, result := range results {
+			row = sheet.AddRow()
+			for _, h := range header {
+				row.AddCell().SetValue(result[h])
+			}
+		}
+		//file.Save("result.xlsx")
+		buff := new(bytes.Buffer)
+		err = file.Write(buff)
+		if err != nil {
+			return
+		}
+		data := buff.Bytes()
+		//ioutil.WriteFile("result2.xlsx", data, 0644)
+		rsp.Result = data
+		if err != nil {
+			return
+		}
+	}
 }
 
 func QueryBrand(c *gin.Context) {

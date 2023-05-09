@@ -23,6 +23,14 @@ func NewMongoManger(CollectionName string) (*MongoManger, error) {
 	return &MongoManger{client: client, collection: collection}, nil
 }
 
+func (m *MongoManger) GetClient() *mongo.Client {
+	return m.client
+}
+
+func (m *MongoManger) GetCollection() *mongo.Collection {
+	return m.collection
+}
+
 func (m *MongoManger) MongoAggregate(query bson.M) ([]bson.M, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

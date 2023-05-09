@@ -7,7 +7,7 @@ require (
 	github.com/gin-gonic/gin v1.9.0
 	github.com/gocolly/colly/v2 v2.1.0
 	github.com/redis/go-redis/v9 v9.0.3
-	github.com/tidwall/gjson v1.14.4
+	github.com/tealeg/xlsx v1.0.5
 	github.com/zentures/cityhash v0.0.0-20131128155616-cdd6a94144ab
 	go.mongodb.org/mongo-driver v1.11.4
 	golang.org/x/net v0.9.0
@@ -45,7 +45,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/temoto/robotstxt v1.1.2 // indirect
-	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
