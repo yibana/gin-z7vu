@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"gin/amazon"
 	"gin/utils"
+	browser "github.com/EDDYCJY/fake-useragent"
 	"github.com/gocolly/colly/v2"
 	"log"
 	"net/http"
@@ -129,7 +130,7 @@ func GetAmzProductList(_url, proxy string) ([]amazon.CategoryRank, error) {
 
 func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Product, error) {
 	productURL := fmt.Sprintf("https://%s/dp/%s?th=1&psc=1", host, asin)
-	useragent := UserAgent
+	useragent := browser.Computer()
 	if cy == nil {
 		cy = colly.NewCollector(
 			colly.UserAgent(useragent),
