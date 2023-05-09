@@ -82,7 +82,7 @@ func (t *ProductDetailTask) Run(i int) {
 				product, err := scrape.GetAmzProduct(nil, t.Host, asin, threadinfo.Proxy)
 				if err != nil {
 					if !strings.Contains(err.Error(), "Not Found") {
-						t.AddAsin(asin)
+						//t.AddAsin(asin)
 					} else {
 						db.AMZProductInstance.DeleteAsin(asin)
 					}
