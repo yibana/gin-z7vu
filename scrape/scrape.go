@@ -274,10 +274,6 @@ func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Produ
 					product.ASIN = asin
 				}
 
-				if len(product.Brand) > 0 {
-					product.Brand = ExtractBrandName(product.Brand)
-				}
-
 				if ranks, ok := detail["Best Sellers Rank"]; ok {
 					rank_arr := strings.Split(ranks, " #")
 					if len(rank_arr) >= 2 {
@@ -309,6 +305,10 @@ func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Produ
 
 		if sellerName, ok := product.DeliveryInfo.Info["sellerName"]; ok {
 			product.SellerNameContainsBrand = strings.Contains(strings.ToLower(sellerName), strings.ToLower(product.Brand))
+		}
+
+		if len(product.Brand) > 0 {
+			product.Brand = ExtractBrandName(product.Brand)
 		}
 
 	})
