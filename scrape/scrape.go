@@ -307,6 +307,10 @@ func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Produ
 
 		product.DeliveryInfo = amazon.MerchantInfo2DeliveryInfo(product.MerchantInfo)
 
+		if sellerName, ok := product.DeliveryInfo.Info["sellerName"]; ok {
+			product.SellerNameContainsBrand = strings.Contains(strings.ToLower(sellerName), strings.ToLower(product.Brand))
+		}
+
 	})
 
 	cy.OnError(func(r *colly.Response, err error) {

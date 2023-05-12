@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	cmd := "upBrand"
+	cmd := "fixBrand"
 	switch cmd {
 	case "fixBrand":
 		fix_brand()
