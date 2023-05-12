@@ -28,6 +28,7 @@ func main() {
 	r.GET("/Categorys2TreeNode", routes.Categorys2TreeNode)
 	r.GET("/ConvertToTreeSelect", routes.ConvertToTreeSelect)
 	r.GET("/product", routes.GetProduct)
+	r.GET("/productV2", routes.GetProductV2)
 	r.GET("/paths", routes.Paths)
 	r.GET("/product/list", routes.GetProductList)
 	r.GET("/task/categorys", routes.Taskcategorys)

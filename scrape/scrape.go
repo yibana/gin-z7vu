@@ -1,6 +1,7 @@
 package scrape
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -9,7 +10,9 @@ import (
 	"gin/amazon"
 	"gin/utils"
 	browser "github.com/EDDYCJY/fake-useragent"
+	"github.com/PuerkitoBio/goquery"
 	"github.com/gocolly/colly/v2"
+	"github.com/yibana/ChromiumClient"
 	"log"
 	"net/http"
 	"net/url"
@@ -127,6 +130,188 @@ func GetAmzProductList(_url, proxy string) ([]amazon.CategoryRank, error) {
 	}
 	return asins, nil
 }
+func ForEach(doc *goquery.Selection, selector string, callback func(i int, element *goquery.Selection)) {
+	doc.Find(selector).Each(callback)
+}
+func getAmzTableV2(e *goquery.Selection, goquerySelector string) map[string]string {
+	var table = make(map[string]string)
+	ForEach(e, goquerySelector, func(i int, e *goquery.Selection) {
+		ForEach(e, "tr", func(i int, e *goquery.Selection) {
+			td := e.Find("td")
+			// 过滤掉td中的style元素
+			td.Find("style").Remove()
+			td.Find("script").Remove()
+			table[utils.TrimAll(e.Find("th").Text())] = utils.TrimAll(td.Text())
+		})
+	})
+	return table
+}
+func GetAmzProductEx(host, asin, proxy string) (*amazon.Product, error) {
+	productURL := fmt.Sprintf("https://%s/dp/%s?th=1&psc=1", host, asin)
+	useragent := browser.Computer()
+	client, _ := ChromiumClient.New(proxy)
+	client.UserAgent = useragent
+	rsp, err := client.Get(productURL)
+	if err != nil {
+		return nil, err
+	}
+	body := string(rsp)
+	if strings.Contains(body, "Sorry, we just need to make sure you're not a robot. For best results, please make sure your browser is accepting cookies.") {
+		return nil, fmt.Errorf("robot")
+	}
+	// html 标签解析
+	rd := bytes.NewReader(rsp)
+	doc, err := goquery.NewDocumentFromReader(rd)
+	if err != nil {
+		return nil, err
+	}
+	// 获取商品信息
+	product := amazon.Product{}
+	dbContainer := doc.Find("#dp-container").First()
+
+	if dbContainer.Length() > 0 {
+		product.ASIN = dbContainer.Find("div[data-asin]").AttrOr("data-asin", "")
+
+		if len(product.ASIN) == 0 {
+			return nil, fmt.Errorf("ASIN is empty")
+		}
+
+		product.Title = utils.TrimAll(dbContainer.Find("#productTitle").First().Text())
+		product.Price = utils.TrimAll(dbContainer.Find("div.a-box-inner span.a-price span").First().Text())
+		product.Brand = strings.TrimPrefix(dbContainer.Find("a#bylineInfo").First().Text(), "Brand: ")
+		product.MerchantInfo = utils.TrimAll(dbContainer.Find("#merchant-info").First().Text())
+		product.RatingsCount = utils.TrimAll(dbContainer.Find("#averageCustomerReviews_feature_div #acrCustomerReviewText").First().Text())
+		product.Rating = utils.TrimAll(dbContainer.Find("#acrPopover").First().AttrOr("title", ""))
+		product.ReviewCount = utils.TrimAll(dbContainer.Find("#askATFLink").First().Text())
+
+		availability := dbContainer.Find("#availability span").First()
+		product.Availability = utils.TrimAll(availability.Text())
+
+		// 卖家数量
+		var sellerSpan []string
+		ForEach(dbContainer, "#olpLinkWidget_feature_div div.olp-text-box>span", func(i int, element *goquery.Selection) {
+			v := utils.TrimAll(element.First().Text())
+			if len(v) > 0 {
+				sellerSpan = append(sellerSpan, v)
+			}
+		})
+		product.OtherSellersSpan = sellerSpan
+		table := getAmzTableV2(dbContainer, "table#productDetails_techSpec_section_1")
+		if len(table) > 0 {
+			product.Details = append(product.Details, table)
+		}
+
+		// 产品图片
+		ForEach(dbContainer, "#leftCol li[data-csa-c-element-type=navigational] img", func(i int, element *goquery.Selection) {
+			product.Images = append(product.Images, element.AttrOr("src", ""))
+		})
+
+		// 产品详情
+		ForEach(dbContainer, "#tech table", func(i int, e *goquery.Selection) {
+			var tb = make(map[string]string)
+			ForEach(e, "tr", func(i int, e *goquery.Selection) {
+				td := e.Find("td")
+				if td.Length() >= 2 {
+					tb[utils.TrimAll(td.Eq(0).Text())] = utils.TrimAll(td.Eq(1).Text())
+				}
+			})
+			if len(tb) > 0 {
+				product.Details = append(product.Details, tb)
+			}
+		})
+		// 产品详情
+		tb := make(map[string]string)
+		ForEach(dbContainer, "#detailBullets_feature_div span.a-list-item", func(i int, e *goquery.Selection) {
+			span := e.Find("span")
+			if span.Length() >= 2 {
+				tb[utils.TrimSpan(span.Eq(0).Text())] = utils.TrimSpan(span.Eq(1).Text())
+			}
+		})
+		// 产品详情
+		ForEach(dbContainer, "#detailBulletsWrapper_feature_div>ul", func(i int, e *goquery.Selection) {
+			li := e.Find("li").First()
+			// 过滤掉td中的style元素
+			li.Find("style").Remove()
+			li.Find("script").Remove()
+			span := li.Find("span.a-text-bold").First()
+			key := span.Text()
+			span.Remove()
+			val := li.Text()
+			tb[utils.TrimSpan(key)] = utils.TrimAll(val)
+		})
+
+		if len(tb) > 0 {
+			product.Details = append(product.Details, tb)
+		}
+
+		table = getAmzTableV2(dbContainer, "table#productDetails_detailBullets_sections1")
+		if len(table) > 0 {
+			product.Details = append(product.Details, table)
+		}
+		product.MainRanking = dbContainer.Find("#SalesRank").Text()
+		if len(product.Details) > 0 {
+			var sizes []string
+
+			for _, detail := range product.Details {
+				if size, ok := detail["Size"]; ok {
+					sizes = append(sizes, size)
+				}
+				if size, ok := detail["Product Dimensions"]; ok {
+					sizes = append(sizes, size)
+				}
+				if date, ok := detail["Date First Available"]; ok {
+					product.ListingDate = date
+				}
+				if brand, ok := detail["Brand"]; ok {
+					product.Brand = brand
+				}
+				if asin, ok := detail["ASIN"]; ok {
+					product.ASIN = asin
+				}
+
+				if ranks, ok := detail["Best Sellers Rank"]; ok {
+					rank_arr := strings.Split(ranks, " #")
+					if len(rank_arr) >= 2 {
+						product.MainRanking = utils.TrimAll(rank_arr[0])
+						product.SubRanking = "#" + utils.TrimAll(rank_arr[1])
+					} else if len(rank_arr) == 1 {
+						product.MainRanking = utils.TrimAll(rank_arr[0])
+					}
+				}
+			}
+			product.Size = strings.Join(sizes, ",")
+		}
+
+		var ProductValues amazon.ProductValues
+		ProductValues.Price, _ = utils.ExtractNumberFromString(product.Price)
+		ProductValues.Rating, _ = utils.ExtractNumberFromString(product.Rating)
+		ProductValues.RatingsCount, _ = utils.ExtractNumberFromString(product.RatingsCount)
+		ProductValues.ReviewCount, _ = utils.ExtractNumberFromString(product.ReviewCount)
+		ProductValues.MainRanking, _ = utils.ExtractNumberFromString(product.MainRanking)
+		ProductValues.SubRanking, _ = utils.ExtractNumberFromString(product.SubRanking)
+		ProductValues.Availability, _ = utils.ExtractNumberFromString(product.Availability)
+		if len(product.OtherSellersSpan) > 0 {
+			ProductValues.OtherSellerCount, _ = utils.ExtractNumberFromString(product.OtherSellersSpan[0])
+		}
+
+		product.ProductValues = ProductValues
+
+		product.DeliveryInfo = amazon.MerchantInfo2DeliveryInfo(product.MerchantInfo)
+
+		if sellerName, ok := product.DeliveryInfo.Info["sellerName"]; ok {
+			product.SellerNameContainsBrand = strings.Contains(strings.ToLower(product.Brand), strings.ToLower(sellerName))
+			if !product.SellerNameContainsBrand {
+				product.SellerNameContainsBrand = strings.Contains(strings.ToLower(sellerName), strings.ToLower(product.Brand))
+			}
+		}
+
+		if len(product.Brand) > 0 {
+			product.Brand = ExtractBrandName(product.Brand)
+		}
+	}
+
+	return &product, nil
+}
 
 func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Product, error) {
 	productURL := fmt.Sprintf("https://%s/dp/%s?th=1&psc=1", host, asin)
@@ -148,6 +333,10 @@ func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Produ
 				return proxyURL, nil
 			})
 		}
+
+		// client.IMAPClient.Transport
+
+		//cy.WithTransport(client.IMAPClient.Transport.(http.RoundTripper))
 		/*		var Proxy func(*http.Request) (*url.URL, error)
 				if proxyURL == nil {
 					Proxy = http.ProxyFromEnvironment
@@ -304,7 +493,10 @@ func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Produ
 		product.DeliveryInfo = amazon.MerchantInfo2DeliveryInfo(product.MerchantInfo)
 
 		if sellerName, ok := product.DeliveryInfo.Info["sellerName"]; ok {
-			product.SellerNameContainsBrand = strings.Contains(strings.ToLower(sellerName), strings.ToLower(product.Brand))
+			product.SellerNameContainsBrand = strings.Contains(strings.ToLower(product.Brand), strings.ToLower(sellerName))
+			if !product.SellerNameContainsBrand {
+				product.SellerNameContainsBrand = strings.Contains(strings.ToLower(sellerName), strings.ToLower(product.Brand))
+			}
 		}
 
 		if len(product.Brand) > 0 {

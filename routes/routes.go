@@ -119,6 +119,32 @@ func Categorys2TreeNode(c *gin.Context) {
 	c.Data(200, "application/json", bytes)
 }
 
+func GetProductV2(c *gin.Context) {
+	host := c.DefaultQuery("host", "www.amazon.ca")
+	asin := c.DefaultQuery("asin", "B08MR2C1T7")
+	proxy := c.DefaultQuery("proxy", config.ProxyUrl)
+
+	product, err := scrape.GetAmzProductEx(host, asin, proxy)
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Print the product details
+	marshal, err := json.MarshalIndent(product, "", "  ")
+	if err != nil {
+		c.String(http.StatusInternalServerError, fmt.Sprintf("Error MarshalIndent: %s", err.Error()))
+		return
+	}
+	// 将product保存到mongodb数据库
+	db.AMZProductDetailInstance.SaveProductDetail(product)
+	if len(product.Brand) > 0 {
+		db.AMZBrandInstance.UpBrand(config.APIClientInstance, product.Brand)
+	}
+
+	c.Data(200, "application/json", marshal)
+}
+
 func GetProduct(c *gin.Context) {
 	host := c.DefaultQuery("host", "www.amazon.ca")
 	asin := c.DefaultQuery("asin", "B08MR2C1T7")

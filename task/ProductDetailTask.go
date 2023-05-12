@@ -79,7 +79,7 @@ func (t *ProductDetailTask) Run(i int) {
 					return
 				}
 				threadinfo.Info = fmt.Sprintf("正在处理asin:%s", asin)
-				product, err := scrape.GetAmzProduct(nil, t.Host, asin, threadinfo.Proxy)
+				product, err := scrape.GetAmzProductEx(t.Host, asin, threadinfo.Proxy)
 				if err != nil {
 					if !strings.Contains(err.Error(), "Not Found") {
 						//t.AddAsin(asin)
