@@ -171,6 +171,23 @@ func GetProduct(c *gin.Context) {
 	c.Data(200, "application/json", marshal)
 }
 
+func GetProductListV2(c *gin.Context) {
+	url := c.DefaultQuery("url", "https://www.amazon.ca/Best-Sellers-Amazon-Devices-Accessories-Amazon-Device-Accessories/zgbs/amazon-devices/2980422011/ref=zg_bs_unv_amazon-devices_2_5500205011_2")
+	proxy := c.DefaultQuery("proxy", config.ProxyUrl)
+	products, err := scrape.GetAmzProductListV2(url, proxy)
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	// Print the product details
+	marshal, err := json.MarshalIndent(products, "", "  ")
+	if err != nil {
+		c.String(http.StatusInternalServerError, fmt.Sprintf("Error MarshalIndent: %s", err.Error()))
+		return
+	}
+	c.Data(200, "application/json", marshal)
+}
+
 func GetProductList(c *gin.Context) {
 	url := c.DefaultQuery("url", "https://www.amazon.ca/Best-Sellers-Amazon-Devices-Accessories-Amazon-Device-Accessories/zgbs/amazon-devices/2980422011/ref=zg_bs_unv_amazon-devices_2_5500205011_2")
 	proxy := c.DefaultQuery("proxy", config.ProxyUrl)

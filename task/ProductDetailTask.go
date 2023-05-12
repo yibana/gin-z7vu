@@ -252,7 +252,7 @@ func UpdateAsinList(path, proxy string) error {
 	// 更新asin列表
 	var list []amazon.CategoryRank
 	var err error
-	list, err = scrape.GetAmzProductList(url, proxy)
+	list, err = scrape.GetAmzProductListV2(url, proxy)
 	if err != nil {
 		return err
 	}

@@ -31,6 +31,103 @@ func ExtractBrandName(text string) string {
 	}
 	return text
 }
+
+type recs_list struct {
+	ID          string `json:"id"`
+	MetadataMap struct {
+		RenderZgRank                           string `json:"render.zg.rank"`
+		RenderZgBsmsCurrentSalesRank           string `json:"render.zg.bsms.currentSalesRank"`
+		RenderZgBsmsPercentageChange           string `json:"render.zg.bsms.percentageChange"`
+		RenderZgBsmsTwentyFourHourOldSalesRank string `json:"render.zg.bsms.twentyFourHourOldSalesRank"`
+		DisablePercolateLinkParams             string `json:"disablePercolateLinkParams"`
+	} `json:"metadataMap"`
+	LinkParameters struct {
+	} `json:"linkParameters"`
+}
+
+func GetAmzProductListV2(_url, proxy string) ([]amazon.CategoryRank, error) {
+	useragent := browser.Computer()
+	client, _ := ChromiumClient.New(proxy)
+	client.UserAgent = useragent
+
+	var asins []amazon.CategoryRank
+	var nextPage string
+	visit := func(visitUrl string) error {
+		var base *url.URL
+		base, err := url.Parse(visitUrl)
+		if err != nil {
+			return err
+		}
+		AbsoluteURL := func(path string) string {
+			u, err := url.Parse(path)
+			if err != nil {
+				return ""
+			}
+			return base.ResolveReference(u).String()
+		}
+		fmt.Printf("开始爬取： %s\n", visitUrl)
+		rsp, err := client.Get(visitUrl)
+		if err != nil {
+			return err
+		}
+		body := string(rsp)
+		if strings.Contains(body, "Sorry, we just need to make sure you're not a robot. For best results, please make sure your browser is accepting cookies.") {
+			return fmt.Errorf("robot")
+		}
+		// html 标签解析
+		rd := bytes.NewReader(rsp)
+		doc, err := goquery.NewDocumentFromReader(rd)
+		if err != nil {
+			return err
+		}
+		var onError error
+		OnHTML(doc, "div.p13n-desktop-grid", func(e *goquery.Selection) {
+			attr, exists := e.Attr("data-client-recs-list")
+			if exists {
+				var recs_lists []recs_list
+				err := json.Unmarshal([]byte(attr), &recs_lists)
+				if err != nil {
+					onError = err
+					return
+				}
+				for _, rl := range recs_lists {
+					rank := amazon.CategoryRank{Rank: rl.MetadataMap.RenderZgRank, ID: rl.ID}
+					IdDiv := e.Find(fmt.Sprintf("#%s", rl.ID)).First()
+					if src, b := IdDiv.Find("img").First().Attr("src"); b {
+						rank.Img = AbsoluteURL(src)
+					}
+					if href, b := IdDiv.Find("a").First().Attr("href"); b {
+						rank.Url = AbsoluteURL(href)
+					}
+					rank.Title = utils.TrimAll(IdDiv.Find("a>span>div").First().Text())
+					rank.Price = utils.TrimAll(IdDiv.Find("span.a-color-price").First().Text())
+					rank.Rating = utils.TrimAll(IdDiv.Find("div>a i.a-icon-star-small").First().Text())
+					rank.RatingsCount = utils.TrimAll(IdDiv.Find("div>a span.a-size-small").First().Text())
+					asins = append(asins, rank)
+				}
+
+			}
+		})
+		href := doc.Find("div.a-text-center ul li.a-normal a").First().AttrOr("href", "")
+		if len(href) > 0 {
+			nextPage = AbsoluteURL(href)
+		}
+		return onError
+
+	}
+	err := visit(_url)
+	if err != nil {
+		return nil, err
+	}
+	if len(nextPage) > 0 {
+		err = visit(nextPage)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return asins, nil
+}
+
 func GetAmzProductList(_url, proxy string) ([]amazon.CategoryRank, error) {
 	host := strings.Split(_url, "/")[2]
 	cy := colly.NewCollector(
@@ -54,18 +151,6 @@ func GetAmzProductList(_url, proxy string) ([]amazon.CategoryRank, error) {
 	}
 	var onError error
 	var asins []amazon.CategoryRank
-	type recs_list struct {
-		ID          string `json:"id"`
-		MetadataMap struct {
-			RenderZgRank                           string `json:"render.zg.rank"`
-			RenderZgBsmsCurrentSalesRank           string `json:"render.zg.bsms.currentSalesRank"`
-			RenderZgBsmsPercentageChange           string `json:"render.zg.bsms.percentageChange"`
-			RenderZgBsmsTwentyFourHourOldSalesRank string `json:"render.zg.bsms.twentyFourHourOldSalesRank"`
-			DisablePercolateLinkParams             string `json:"disablePercolateLinkParams"`
-		} `json:"metadataMap"`
-		LinkParameters struct {
-		} `json:"linkParameters"`
-	}
 	cy.OnHTML("div.p13n-desktop-grid", func(e *colly.HTMLElement) {
 		attr, exists := e.DOM.Attr("data-client-recs-list")
 		if exists {
@@ -130,6 +215,12 @@ func GetAmzProductList(_url, proxy string) ([]amazon.CategoryRank, error) {
 	}
 	return asins, nil
 }
+func OnHTML(e *goquery.Document, selector string, callback func(element *goquery.Selection)) {
+	first := e.Find(selector).First()
+	if first.Length() > 0 {
+		callback(first)
+	}
+}
 func ForEach(doc *goquery.Selection, selector string, callback func(i int, element *goquery.Selection)) {
 	doc.Find(selector).Each(callback)
 }
@@ -151,6 +242,7 @@ func GetAmzProductEx(host, asin, proxy string) (*amazon.Product, error) {
 	useragent := browser.Computer()
 	client, _ := ChromiumClient.New(proxy)
 	client.UserAgent = useragent
+	fmt.Printf("开始爬取： %s\n", productURL)
 	rsp, err := client.Get(productURL)
 	if err != nil {
 		return nil, err
@@ -298,15 +390,15 @@ func GetAmzProductEx(host, asin, proxy string) (*amazon.Product, error) {
 
 		product.DeliveryInfo = amazon.MerchantInfo2DeliveryInfo(product.MerchantInfo)
 
+		if len(product.Brand) > 0 {
+			product.Brand = ExtractBrandName(product.Brand)
+		}
+
 		if sellerName, ok := product.DeliveryInfo.Info["sellerName"]; ok {
 			product.SellerNameContainsBrand = strings.Contains(strings.ToLower(product.Brand), strings.ToLower(sellerName))
 			if !product.SellerNameContainsBrand {
 				product.SellerNameContainsBrand = strings.Contains(strings.ToLower(sellerName), strings.ToLower(product.Brand))
 			}
-		}
-
-		if len(product.Brand) > 0 {
-			product.Brand = ExtractBrandName(product.Brand)
 		}
 	}
 
@@ -492,15 +584,15 @@ func GetAmzProduct(cy *colly.Collector, host, asin, proxy string) (*amazon.Produ
 
 		product.DeliveryInfo = amazon.MerchantInfo2DeliveryInfo(product.MerchantInfo)
 
+		if len(product.Brand) > 0 {
+			product.Brand = ExtractBrandName(product.Brand)
+		}
+
 		if sellerName, ok := product.DeliveryInfo.Info["sellerName"]; ok {
 			product.SellerNameContainsBrand = strings.Contains(strings.ToLower(product.Brand), strings.ToLower(sellerName))
 			if !product.SellerNameContainsBrand {
 				product.SellerNameContainsBrand = strings.Contains(strings.ToLower(sellerName), strings.ToLower(product.Brand))
 			}
-		}
-
-		if len(product.Brand) > 0 {
-			product.Brand = ExtractBrandName(product.Brand)
 		}
 
 	})

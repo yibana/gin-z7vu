@@ -31,6 +31,7 @@ func main() {
 	r.GET("/productV2", routes.GetProductV2)
 	r.GET("/paths", routes.Paths)
 	r.GET("/product/list", routes.GetProductList)
+	r.GET("/product/listv2", routes.GetProductListV2)
 	r.GET("/task/categorys", routes.Taskcategorys)
 	r.POST("/task/ProductDetail", routes.ProductDetail)
 	r.GET("/CategoryRankCountGroupByPath", routes.GetCategoryRankCountGroupByPath)
