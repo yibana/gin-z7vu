@@ -9,10 +9,13 @@ import (
 	"fmt"
 	"gin/amazon"
 	"gin/utils"
+	"github.com/Danny-Dasilva/CycleTLS/cycletls"
 	browser "github.com/EDDYCJY/fake-useragent"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gocolly/colly/v2"
+	fhttp "github.com/saucesteals/fhttp"
 	"github.com/yibana/ChromiumClient"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -66,7 +69,7 @@ func GetAmzProductListV2(_url, proxy string) ([]amazon.CategoryRank, error) {
 			return base.ResolveReference(u).String()
 		}
 		fmt.Printf("开始爬取： %s\n", visitUrl)
-		rsp, err := client.Get(visitUrl)
+		rsp, err := HTTPGet(client, visitUrl)
 		if err != nil {
 			return err
 		}
@@ -237,19 +240,48 @@ func getAmzTableV2(e *goquery.Selection, goquerySelector string) map[string]stri
 	})
 	return table
 }
+
+func HTTPGet(client *ChromiumClient.ChromiumClient, _url string) ([]byte, error) {
+	//nowTime := time.Now()
+	//defer func() {
+	//	fmt.Printf("[%d]ms [GET]: %s\n", time.Now().Sub(nowTime).Milliseconds(), _url)
+	//}()
+	req, err := fhttp.NewRequest("GET", _url, nil)
+	resp, err := client.ClientDo(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("StatusCode: %d", resp.StatusCode)
+	}
+	defer resp.Body.Close()
+	encoding := resp.Header["Content-Encoding"]
+	content := resp.Header["Content-Type"]
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	Body := cycletls.DecompressBody(bodyBytes, encoding, content)
+	return []byte(Body), nil
+}
 func GetAmzProductEx(host, asin, proxy string) (*amazon.Product, error) {
 	productURL := fmt.Sprintf("https://%s/dp/%s?th=1&psc=1", host, asin)
 	useragent := browser.Computer()
 	client, _ := ChromiumClient.New(proxy)
 	client.UserAgent = useragent
 	fmt.Printf("开始爬取： %s\n", productURL)
-	rsp, err := client.Get(productURL)
+	rsp, err := HTTPGet(client, productURL)
 	if err != nil {
 		return nil, err
 	}
 	body := string(rsp)
 	if strings.Contains(body, "Sorry, we just need to make sure you're not a robot. For best results, please make sure your browser is accepting cookies.") {
 		return nil, fmt.Errorf("robot")
+	}
+	if len(body) == 0 {
+		return nil, fmt.Errorf("body is empty")
 	}
 	// html 标签解析
 	rd := bytes.NewReader(rsp)

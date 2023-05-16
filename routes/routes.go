@@ -150,7 +150,7 @@ func GetProduct(c *gin.Context) {
 	asin := c.DefaultQuery("asin", "B08MR2C1T7")
 	proxy := c.DefaultQuery("proxy", config.ProxyUrl)
 
-	product, err := scrape.GetAmzProduct(nil, host, asin, proxy)
+	product, err := scrape.GetAmzProductEx(host, asin, proxy)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return

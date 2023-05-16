@@ -91,9 +91,9 @@ func (t *ProductDetailTask) Run(i int) {
 					t.AddFailCount()
 					threadinfo.LastErr = fmt.Sprintf("%s:%s", asin, err.Error())
 					threadinfo.LastErrTime = time.Now().Unix()
-					if strings.Contains(err.Error(), "robot") || strings.Contains(err.Error(), "Service Unavailable") {
+					if strings.Contains(err.Error(), "robot") || strings.Contains(err.Error(), "Service Unavailable") || strings.Contains(err.Error(), "StatusCode") {
 						robotCount++
-						fmt.Println("robot || Service Unavailable", robotCount*60)
+						fmt.Println("robot || Service Unavailable || StatusCode", robotCount*60)
 						for i := 0; i < robotCount*60; i++ {
 							time.Sleep(time.Second)
 							if t.Status != 1 {
