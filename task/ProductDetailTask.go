@@ -230,7 +230,7 @@ func (t *ProductDetailTask) GetAsin(Proxy string) (asin string, err error) {
 }
 
 func UpdateAsinList(path, proxy string) error {
-	key := fmt.Sprintf("CategoryPathFlag:v2:%s", path)
+	key := fmt.Sprintf("CategoryPathFlag:v2.1:%s", path)
 	exist, err2 := db.RedisCacheInstance.Exist(key)
 	if err2 != nil {
 		return err2
@@ -260,6 +260,7 @@ func UpdateAsinList(path, proxy string) error {
 		// 保存到数据库
 		var slist = make([]*amazon.CategoryRank, 0, len(list))
 		for i, _ := range list {
+			list[i].Path = path
 			slist = append(slist, &list[i])
 		}
 		err = db.AMZProductInstance.BatchSaveCategoryRank(slist)
@@ -267,7 +268,7 @@ func UpdateAsinList(path, proxy string) error {
 			return err
 		}
 		// 标记已经更新过
-		err = db.RedisCacheInstance.Redis_client.Set(context.Background(), key, 1, time.Hour*48).Err()
+		err = db.RedisCacheInstance.Redis_client.Set(context.Background(), key, 1, time.Hour*24).Err()
 		if err != nil {
 			return err
 		}
@@ -282,7 +283,7 @@ func GetTaskAsin(path string) ([]string, error) {
 		{"$lookup": bson.M{"from": "ProductDetail", "localField": "id", "foreignField": "asin", "as": "ProductDetail"}},
 		{"$match": bson.M{"$or": bson.A{
 			bson.M{"ProductDetail.lasttime": bson.M{"$exists": false}},
-			bson.M{"ProductDetail.lasttime": bson.M{"$lt": time.Now().Add(time.Hour * 24)}},
+			bson.M{"ProductDetail.lasttime": bson.M{"$lt": int(time.Now().Add(time.Hour*24).UnixMilli() / 1000)}},
 		}}},
 		{"$group": bson.M{"_id": "$id", "count": bson.M{"$sum": 1}}},
 		{"$project": bson.M{"_id": 1, "count": 1}},
