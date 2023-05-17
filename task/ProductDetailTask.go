@@ -84,7 +84,7 @@ func (t *ProductDetailTask) Run(i int) {
 				GetAsinFailCount = 0
 				if len(asin) == 0 {
 					threadinfo.Info = "没有asin了"
-					return
+					continue
 				}
 				threadinfo.Info = fmt.Sprintf("正在处理asin:%s", asin)
 				product, err := scrape.GetAmzProductEx(t.Host, asin, threadinfo.Proxy)
