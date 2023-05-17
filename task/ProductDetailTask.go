@@ -65,7 +65,7 @@ func (t *ProductDetailTask) Run(i int) {
 				if err != nil {
 					GetAsinFailCount++
 					if GetAsinFailCount > 5 {
-						threadinfo.LastErr = "获取asin失败次数过多"
+						threadinfo.Info = "获取asin失败次数过多"
 						threadinfo.LastErrTime = time.Now().Unix()
 						return
 					}
