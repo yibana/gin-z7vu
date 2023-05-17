@@ -267,7 +267,7 @@ func UpdateAsinList(path, proxy string) error {
 	}
 
 	if len(list) == 0 {
-		return fmt.Errorf("没有找到asin列表")
+		return nil // 没有asin列表
 	}
 
 	// 保存到数据库
