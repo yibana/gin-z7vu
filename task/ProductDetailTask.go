@@ -69,6 +69,14 @@ func (t *ProductDetailTask) Run(i int) {
 						threadinfo.LastErrTime = time.Now().Unix()
 						return
 					}
+					if strings.Contains(err.Error(), "没有asin了") {
+						err = t.ResetPaths()
+						if err != nil {
+							threadinfo.LastErr = err.Error()
+							threadinfo.LastErrTime = time.Now().Unix()
+							return
+						}
+					}
 					threadinfo.LastErr = err.Error()
 					time.Sleep(time.Second * 5)
 					continue
