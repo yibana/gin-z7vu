@@ -90,7 +90,7 @@ func (t *ProductDetailTask) Run(i int) {
 				threadinfo.Info = fmt.Sprintf("正在处理asin:%s", asin)
 				product, err := scrape.GetAmzProductEx(t.Host, asin, threadinfo.Proxy)
 				if err != nil {
-					if !strings.Contains(err.Error(), "Not Found") {
+					if !strings.Contains(err.Error(), "StatusCode: 404") {
 						//t.AddAsin(asin)
 					} else {
 						db.AMZProductInstance.DeleteAsin(asin)
@@ -100,7 +100,7 @@ func (t *ProductDetailTask) Run(i int) {
 					t.AddFailCount()
 					threadinfo.LastErr = fmt.Sprintf("%s:%s", asin, err.Error())
 					threadinfo.LastErrTime = time.Now().Unix()
-					if strings.Contains(err.Error(), "robot") || strings.Contains(err.Error(), "Service Unavailable") || strings.Contains(err.Error(), "StatusCode") {
+					if strings.Contains(err.Error(), "robot") || strings.Contains(err.Error(), "Service Unavailable") || strings.Contains(err.Error(), "503") {
 						robotCount++
 						fmt.Println("robot || Service Unavailable || StatusCode", robotCount*60)
 						for i := 0; i < robotCount*60; i++ {

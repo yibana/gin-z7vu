@@ -268,9 +268,9 @@ func HTTPGet(client *ChromiumClient.ChromiumClient, _url string) ([]byte, error)
 }
 func GetAmzProductEx(host, asin, proxy string) (*amazon.Product, error) {
 	productURL := fmt.Sprintf("https://%s/dp/%s?th=1&psc=1", host, asin)
-	//useragent := browser.Computer()
+	useragent := browser.Computer()
 	client, _ := ChromiumClient.New(proxy)
-	client.UserAgent = UserAgent
+	client.UserAgent = useragent
 	fmt.Printf("开始爬取： %s\n", productURL)
 	rsp, err := HTTPGet(client, productURL)
 	if err != nil {
