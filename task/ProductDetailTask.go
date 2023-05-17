@@ -300,7 +300,7 @@ func GetTaskAsin(path string) ([]string, error) {
 		{"$lookup": bson.M{"from": "ProductDetail", "localField": "id", "foreignField": "asin", "as": "ProductDetail"}},
 		{"$match": bson.M{"$or": bson.A{
 			bson.M{"ProductDetail.lasttime": bson.M{"$exists": false}},
-			bson.M{"ProductDetail.lasttime": bson.M{"$lt": int(time.Now().Add(time.Hour*24).UnixMilli() / 1000)}},
+			bson.M{"ProductDetail.lasttime": bson.M{"$lt": int(time.Now().Add(-time.Hour*24).UnixMilli() / 1000)}},
 		}}},
 		{"$group": bson.M{"_id": "$id", "count": bson.M{"$sum": 1}}},
 		{"$project": bson.M{"_id": 1, "count": 1}},
