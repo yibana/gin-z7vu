@@ -53,6 +53,7 @@ func (t *ProductDetailTask) Start(proxys []string, RandomDelay int) error {
 func (t *ProductDetailTask) Run(i int) {
 	threadinfo := t.threadInfos[i]
 	var GetAsinFailCount int
+	var GetAsinDetailFailCount int
 	var robotCount int
 	for {
 		select {
@@ -91,7 +92,12 @@ func (t *ProductDetailTask) Run(i int) {
 				product, err := scrape.GetAmzProductEx(t.Host, asin, threadinfo.Proxy)
 				if err != nil {
 					if !strings.Contains(err.Error(), "StatusCode: 404") {
-						//t.AddAsin(asin)
+						GetAsinDetailFailCount++
+						if GetAsinDetailFailCount > 5 {
+							threadinfo.Info = "获取asin详情失败次数过多"
+							threadinfo.LastErrTime = time.Now().Unix()
+							return
+						}
 					} else {
 						db.AMZProductInstance.DeleteAsin(asin)
 					}
@@ -114,6 +120,7 @@ func (t *ProductDetailTask) Run(i int) {
 					}
 					continue
 				}
+				GetAsinDetailFailCount = 0
 				if strings.ToLower(asin) != strings.ToLower(product.ASIN) { // 需要更新asin
 					now := time.Now()
 					err := db.AMZProductInstance.UpdateAsin(asin, product.ASIN)
