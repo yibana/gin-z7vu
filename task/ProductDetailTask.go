@@ -70,7 +70,7 @@ func (t *ProductDetailTask) Run(i int) {
 						return
 					}
 					if strings.Contains(err.Error(), "没有asin了") {
-						err = t.ResetPaths()
+						err := t.ResetPaths()
 						if err != nil {
 							threadinfo.LastErr = err.Error()
 							threadinfo.LastErrTime = time.Now().Unix()
