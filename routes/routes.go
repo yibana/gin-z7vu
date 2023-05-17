@@ -189,9 +189,9 @@ func GetProductListV2(c *gin.Context) {
 }
 
 func GetProductList(c *gin.Context) {
-	url := c.DefaultQuery("url", "https://www.amazon.ca/Best-Sellers-Amazon-Devices-Accessories-Amazon-Device-Accessories/zgbs/amazon-devices/2980422011/ref=zg_bs_unv_amazon-devices_2_5500205011_2")
+	url := c.DefaultQuery("url", "https://www.amazon.ca/Best-Sellers-Amazon-Devices-Accessories-Smart-Displays/zgbs/amazon-devices/21579941011/ref=zg_bs_nav_amazon-devices_3_17317052011")
 	proxy := c.DefaultQuery("proxy", config.ProxyUrl)
-	products, err := scrape.GetAmzProductList(url, proxy)
+	products, err := scrape.GetAmzProductListV2(url, proxy)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return

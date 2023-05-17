@@ -84,6 +84,7 @@ func (t *ProductDetailTask) Run(i int) {
 				GetAsinFailCount = 0
 				if len(asin) == 0 {
 					threadinfo.Info = "没有asin了"
+					time.Sleep(time.Second * 5)
 					continue
 				}
 				threadinfo.Info = fmt.Sprintf("正在处理asin:%s", asin)
@@ -268,8 +269,14 @@ func UpdateAsinList(path, proxy string) error {
 		// 保存到数据库
 		var slist = make([]*amazon.CategoryRank, 0, len(list))
 		for i, _ := range list {
+			if len(list[i].ID) == 0 || len(list[i].Path) > 0 || len(list[i].Rank) == 0 {
+				continue
+			}
 			list[i].Path = path
 			slist = append(slist, &list[i])
+		}
+		if len(slist) == 0 {
+			return nil
 		}
 		err = db.AMZProductInstance.BatchSaveCategoryRank(slist)
 		if err != nil {
