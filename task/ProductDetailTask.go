@@ -64,7 +64,7 @@ func (t *ProductDetailTask) Run(i int) {
 				asin, err := t.GetAsin(threadinfo.Proxy)
 				if err != nil {
 					GetAsinFailCount++
-					if GetAsinFailCount > 3 {
+					if GetAsinFailCount > 5 {
 						threadinfo.LastErr = "获取asin失败次数过多"
 						threadinfo.LastErrTime = time.Now().Unix()
 						return
@@ -265,29 +265,31 @@ func UpdateAsinList(path, proxy string) error {
 	if err != nil {
 		return err
 	}
-	if len(list) > 0 {
-		// 保存到数据库
-		var slist = make([]*amazon.CategoryRank, 0, len(list))
-		for i, _ := range list {
-			if len(list[i].ID) == 0 || len(list[i].Path) > 0 || len(list[i].Rank) == 0 {
-				continue
-			}
-			list[i].Path = path
-			slist = append(slist, &list[i])
-		}
-		if len(slist) == 0 {
-			return nil
-		}
-		err = db.AMZProductInstance.BatchSaveCategoryRank(slist)
-		if err != nil {
-			return err
-		}
-		// 标记已经更新过
-		err = db.RedisCacheInstance.Redis_client.Set(context.Background(), key, 1, time.Hour*24).Err()
-		if err != nil {
-			return err
-		}
 
+	if len(list) == 0 {
+		return fmt.Errorf("没有找到asin列表")
+	}
+
+	// 保存到数据库
+	var slist = make([]*amazon.CategoryRank, 0, len(list))
+	for i, _ := range list {
+		if len(list[i].ID) == 0 || len(list[i].Path) > 0 || len(list[i].Rank) == 0 {
+			continue
+		}
+		list[i].Path = path
+		slist = append(slist, &list[i])
+	}
+	if len(slist) == 0 {
+		return fmt.Errorf("更新list失败，缺少字段")
+	}
+	err = db.AMZProductInstance.BatchSaveCategoryRank(slist)
+	if err != nil {
+		return err
+	}
+	// 标记已经更新过
+	err = db.RedisCacheInstance.Redis_client.Set(context.Background(), key, 1, time.Hour*24).Err()
+	if err != nil {
+		return err
 	}
 	return nil
 }

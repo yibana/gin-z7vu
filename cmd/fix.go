@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	cmd := "fixBrand"
+	cmd := "delnullid"
 	switch cmd {
 	case "fixBrand":
 		fix_brand()
@@ -19,7 +19,20 @@ func main() {
 		backfill.BackFill_up_brand()
 	case "test":
 		db.AMZBrandInstance.UpBrand(config.APIClientInstance, "DoceMora")
+	case "delnullid":
+		delnullid()
 	}
+}
+
+func delnullid() {
+	//删除Products中id为“”的数据
+	filter := bson.M{"id": ""}
+	r, err := db.AMZProductInstance.GetCollection().DeleteMany(context.Background(), filter)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(r.DeletedCount)
+
 }
 
 func fix_brand() {
