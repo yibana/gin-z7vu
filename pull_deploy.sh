@@ -30,7 +30,7 @@ go build -o gin main.go
 
 # Set environment variable
 export MONGO_URL="mongodb://admin:3WPIki9dXShd6ZZhGXKZ@127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+1.8.2"
-export REDIS_URL = "redis://localhost:6379"
+export REDIS_URL="redis://localhost:6379"
 chmod +x pull_deploy.sh
 
 # Start gin and log output to gin.log
