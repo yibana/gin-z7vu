@@ -93,7 +93,7 @@ func (t *ProductDetailTask) Run(i int) {
 				if err != nil {
 					if !strings.Contains(err.Error(), "StatusCode: 404") {
 						GetAsinDetailFailCount++
-						if GetAsinDetailFailCount > 5 {
+						if GetAsinDetailFailCount > 20 {
 							threadinfo.Info = "获取asin详情失败次数过多"
 							threadinfo.LastErrTime = time.Now().Unix()
 							return
