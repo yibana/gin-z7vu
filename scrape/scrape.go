@@ -49,9 +49,9 @@ type recs_list struct {
 }
 
 func GetAmzProductListV2(_url, proxy string) ([]amazon.CategoryRank, error) {
-	//useragent := browser.Computer()
+	useragent := browser.Computer()
 	client, _ := APIClient.New(proxy)
-	//client.UserAgent = useragent
+	client.UserAgent = useragent
 
 	var asins []amazon.CategoryRank
 	var nextPage string
@@ -268,9 +268,9 @@ func HTTPGet(client *APIClient.ChromiumClient, _url string) ([]byte, error) {
 }
 func GetAmzProductEx(host, asin, proxy string) (*amazon.Product, error) {
 	productURL := fmt.Sprintf("https://%s/dp/%s?th=1&psc=1", host, asin)
-	//useragent := browser.Computer()
+	useragent := browser.Computer()
 	client, _ := APIClient.New(proxy)
-	//client.UserAgent = useragent
+	client.UserAgent = useragent
 	fmt.Printf("开始爬取： %s\n", productURL)
 	rsp, err := HTTPGet(client, productURL)
 	if err != nil {
