@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gin/APIClient"
 	"gin/amazon"
 	"gin/utils"
 	"github.com/Danny-Dasilva/CycleTLS/cycletls"
@@ -14,7 +15,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gocolly/colly/v2"
 	fhttp "github.com/saucesteals/fhttp"
-	"github.com/yibana/ChromiumClient"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -50,7 +50,7 @@ type recs_list struct {
 
 func GetAmzProductListV2(_url, proxy string) ([]amazon.CategoryRank, error) {
 	useragent := browser.Computer()
-	client, _ := ChromiumClient.New(proxy)
+	client, _ := APIClient.New(proxy)
 	client.UserAgent = useragent
 
 	var asins []amazon.CategoryRank
@@ -241,7 +241,7 @@ func getAmzTableV2(e *goquery.Selection, goquerySelector string) map[string]stri
 	return table
 }
 
-func HTTPGet(client *ChromiumClient.ChromiumClient, _url string) ([]byte, error) {
+func HTTPGet(client *APIClient.ChromiumClient, _url string) ([]byte, error) {
 	//nowTime := time.Now()
 	//defer func() {
 	//	fmt.Printf("[%d]ms [GET]: %s\n", time.Now().Sub(nowTime).Milliseconds(), _url)
@@ -268,9 +268,9 @@ func HTTPGet(client *ChromiumClient.ChromiumClient, _url string) ([]byte, error)
 }
 func GetAmzProductEx(host, asin, proxy string) (*amazon.Product, error) {
 	productURL := fmt.Sprintf("https://%s/dp/%s?th=1&psc=1", host, asin)
-	useragent := browser.Computer()
-	client, _ := ChromiumClient.New(proxy)
-	client.UserAgent = useragent
+	//useragent := browser.Computer()
+	client, _ := APIClient.New(proxy)
+	//client.UserAgent = useragent
 	fmt.Printf("开始爬取： %s\n", productURL)
 	rsp, err := HTTPGet(client, productURL)
 	if err != nil {
