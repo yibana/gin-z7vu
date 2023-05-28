@@ -49,9 +49,9 @@ type recs_list struct {
 }
 
 func GetAmzProductListV2(_url, proxy string) ([]amazon.CategoryRank, error) {
-	useragent := browser.Computer()
+	//useragent := browser.Computer()
 	client, _ := APIClient.New(proxy)
-	client.UserAgent = useragent
+	//client.UserAgent = useragent
 
 	var asins []amazon.CategoryRank
 	var nextPage string

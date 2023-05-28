@@ -98,14 +98,14 @@ func (client *ChromiumClient) Post(_url string, data []byte) ([]byte, error) {
 
 func (client *ChromiumClient) ClientDo(req *fhttp.Request) (*fhttp.Response, error) {
 	Header := fhttp.Header{
-		"sec-ch-ua": {client.m.ClientHintUA()},
-		//"content-type":       {"application/json"},
-		"rtt":                {"150"},
+		"sec-ch-ua":          {client.m.ClientHintUA()},
+		"content-type":       {"application/json"},
+		"rtt":                {"50"},
 		"sec-ch-ua-mobile":   {"?0"},
 		"user-agent":         {client.UserAgent},
-		"accept":             {"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"},
+		"accept":             {"text/html,*/*"},
 		"x-requested-with":   {"XMLHttpRequest"},
-		"downlink":           {"10"},
+		"downlink":           {"3.9"},
 		"ect":                {"4g"},
 		"sec-ch-ua-platform": {`"Windows"`},
 		"sec-fetch-site":     {"same-origin"},
