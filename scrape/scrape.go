@@ -296,6 +296,12 @@ func GetAmzProductEx(host, asin, proxy string) (*amazon.Product, error) {
 	if dbContainer.Length() > 0 {
 		product.ASIN = dbContainer.Find("div[data-asin]").AttrOr("data-asin", "")
 
+		input_asin := dbContainer.Find("input[name=ASIN]").AttrOr("value", "")
+
+		if len(input_asin) > 0 && len(product.ASIN) == 0 {
+			product.ASIN = input_asin
+		}
+
 		if len(product.ASIN) == 0 {
 			return nil, fmt.Errorf("ASIN is empty")
 		}
