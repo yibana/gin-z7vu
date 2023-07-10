@@ -309,7 +309,7 @@ func GetAmzProductEx(host, asin, proxy string) (*amazon.Product, error) {
 		product.Title = utils.TrimAll(dbContainer.Find("#productTitle").First().Text())
 		product.Price = utils.TrimAll(dbContainer.Find("div.a-box-inner span.a-price span").First().Text())
 		product.Brand = strings.TrimPrefix(dbContainer.Find("a#bylineInfo").First().Text(), "Brand: ")
-		product.MerchantInfo = utils.TrimAll(dbContainer.Find("#merchant-info").First().Text())
+		product.MerchantInfo = utils.TrimAll(dbContainer.Find(".tabular-buybox-container").First().Text())
 		product.RatingsCount = utils.TrimAll(dbContainer.Find("#averageCustomerReviews_feature_div #acrCustomerReviewText").First().Text())
 		product.Rating = utils.TrimAll(dbContainer.Find("#acrPopover").First().AttrOr("title", ""))
 		product.ReviewCount = utils.TrimAll(dbContainer.Find("#askATFLink").First().Text())
@@ -426,12 +426,15 @@ func GetAmzProductEx(host, asin, proxy string) (*amazon.Product, error) {
 
 		product.ProductValues = ProductValues
 
+		// 配送信息
 		product.DeliveryInfo = amazon.MerchantInfo2DeliveryInfo(product.MerchantInfo)
 
+		// 修正商品名称
 		if len(product.Brand) > 0 {
 			product.Brand = ExtractBrandName(product.Brand)
 		}
 
+		// 修正商品名称
 		if sellerName, ok := product.DeliveryInfo.Info["sellerName"]; ok {
 			product.SellerNameContainsBrand = strings.Contains(strings.ToLower(product.Brand), strings.ToLower(sellerName))
 			if !product.SellerNameContainsBrand {
